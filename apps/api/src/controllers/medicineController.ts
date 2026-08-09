@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
-import { db, medicines, categories, suppliers, inventory } from 'database';
+import { db, medicines, categories, suppliers, inventory, manufacturers } from 'database';
 import { eq, ilike, or, desc, lte, and, sql } from 'drizzle-orm';
 import bwipjs from 'bwip-js';
 import { AppError } from '../utils/AppError.js';
@@ -304,6 +304,32 @@ export const generateBarcodeImage = async (req: Request, res: Response, next: Ne
                 res.status(StatusCodes.OK).send(png);
             }
         );
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get all categories for dropdown selection
+export const getAllCategories = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const results = await db.select().from(categories).orderBy(categories.name);
+        res.status(StatusCodes.OK).json({
+            status: 'success',
+            data: results,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Get all manufacturers for dropdown selection
+export const getAllManufacturers = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const results = await db.select().from(manufacturers).orderBy(manufacturers.name);
+        res.status(StatusCodes.OK).json({
+            status: 'success',
+            data: results,
+        });
     } catch (error) {
         next(error);
     }
