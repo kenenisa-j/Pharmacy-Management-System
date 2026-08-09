@@ -1,0 +1,13 @@
+{
+    "name": "pharmacy-management-system",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev:web": "pnpm --filter web dev",
+        "dev:api": "pnpm --filter api dev",
+        "build": "pnpm -r build"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3"
+    }
+}
