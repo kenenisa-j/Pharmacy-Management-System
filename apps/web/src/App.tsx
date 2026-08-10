@@ -16,25 +16,37 @@ import { CustomersPage } from './spa-components/modules/Customers';
 import { ReportsPage } from './spa-components/modules/Reports';
 import { AuditLogsPage } from './spa-components/modules/AuditLogs';
 
+import { Unauthorized } from './spa-components/Unauthorized';
+
 export function App() {
     return (
         <BrowserRouter>
             <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/unauthorized" element={<Unauthorized />} />
 
                 {/* Protected Layout Wrapper */}
                 <Route element={<ProtectedRoute />}>
                     <Route element={<AppLayout />}>
+                        {/* Common Routes accessible to all authenticated roles */}
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/inventory" element={<InventoryPage />} />
                         <Route path="/pos" element={<POSPage />} />
-                        <Route path="/purchases" element={<PurchaseOrdersPage />} />
-                        <Route path="/suppliers" element={<SuppliersPage />} />
                         <Route path="/customers" element={<CustomersPage />} />
-                        <Route path="/reports" element={<ReportsPage />} />
-                        <Route path="/audit" element={<AuditLogsPage />} />
-                        <Route path="/users" element={<UsersManagementPage />} />
-                        <Route path="/settings" element={<SettingsPage />} />
+
+                        {/* Restricted to Owner and Pharmacist */}
+                        <Route element={<ProtectedRoute allowedRoles={['OWNER', 'PHARMACIST']} />}>
+                            <Route path="/purchases" element={<PurchaseOrdersPage />} />
+                            <Route path="/suppliers" element={<SuppliersPage />} />
+                            <Route path="/reports" element={<ReportsPage />} />
+                        </Route>
+
+                        {/* Restricted to Owner Only */}
+                        <Route element={<ProtectedRoute allowedRoles={['OWNER']} />}>
+                            <Route path="/audit" element={<AuditLogsPage />} />
+                            <Route path="/users" element={<UsersManagementPage />} />
+                            <Route path="/settings" element={<SettingsPage />} />
+                        </Route>
                     </Route>
                 </Route>
 
