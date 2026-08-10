@@ -27,10 +27,8 @@ async function seed() {
     console.log('📋 Creating roles...');
     const roleRecords = [
         { name: 'OWNER', description: 'Full access to all system features' },
-        { name: 'ADMIN', description: 'Administrative access' },
         { name: 'PHARMACIST', description: 'Medicines and prescription management' },
         { name: 'CASHIER', description: 'POS and sales operations' },
-        { name: 'INVENTORY_MANAGER', description: 'Stock control and purchase orders' },
     ];
     const roleMap: Record<string, string> = {};
     for (const r of roleRecords) {
@@ -51,20 +49,12 @@ async function seed() {
             phone: '+251911000001',
         },
         {
-            email: 'admin@pharmacy.com',
-            password: 'Admin@1234',
-            roleName: 'ADMIN',
-            firstName: 'Hana',
-            lastName: 'Girma',
-            phone: '+251911000002',
-        },
-        {
             email: 'pharmacist@pharmacy.com',
             password: 'Pharma@1234',
             roleName: 'PHARMACIST',
             firstName: 'Dawit',
             lastName: 'Bekele',
-            phone: '+251911000003',
+            phone: '+251911000002',
         },
         {
             email: 'cashier@pharmacy.com',
@@ -72,15 +62,7 @@ async function seed() {
             roleName: 'CASHIER',
             firstName: 'Tigist',
             lastName: 'Alemu',
-            phone: '+251911000004',
-        },
-        {
-            email: 'inventory@pharmacy.com',
-            password: 'Inventory@1234',
-            roleName: 'INVENTORY_MANAGER',
-            firstName: 'Yonas',
-            lastName: 'Haile',
-            phone: '+251911000005',
+            phone: '+251911000003',
         },
     ];
 
