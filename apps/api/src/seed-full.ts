@@ -6,7 +6,7 @@ import {
     users,
     roles,
     employees,
-    settings,
+    storeSettings,
     categories,
     manufacturers,
     suppliers,
@@ -105,17 +105,20 @@ async function seed() {
     }
     console.log('   ✓ Users and employees created');
 
-    // 3. Settings
+    // 3. Settings (using storeSettings key-value store)
     console.log('⚙️ Seeding settings...');
-    await db.insert(settings).values({
-        storeName: 'Amanuel Pharmacy ERP',
-        phone: '+251911000000',
-        email: 'info@amanuelpharmacy.com',
-        address: 'Bole Road, Addis Ababa, Ethiopia',
-        currency: 'ETB',
-        taxRate: 15,
-        receiptFooter: 'Thank you for choosing Amanuel Pharmacy. Get well soon!',
-    });
+    const settingsData = [
+        { key: 'STORE_NAME', value: 'Amanuel Pharmacy ERP' },
+        { key: 'PHONE', value: '+251911000000' },
+        { key: 'EMAIL', value: 'info@amanuelpharmacy.com' },
+        { key: 'ADDRESS', value: 'Bole Road, Addis Ababa, Ethiopia' },
+        { key: 'CURRENCY', value: 'ETB' },
+        { key: 'TAX_RATE', value: '15' },
+        { key: 'RECEIPT_FOOTER', value: 'Thank you for choosing Amanuel Pharmacy. Get well soon!' },
+    ];
+    for (const s of settingsData) {
+        await db.insert(storeSettings).values(s);
+    }
     console.log('   ✓ Settings created');
 
     // 4. Categories

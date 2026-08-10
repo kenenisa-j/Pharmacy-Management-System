@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, integer, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, integer, decimal, index } from 'drizzle-orm/pg-core';
 import { medicines } from './products.js';
 import { users } from './core.js';
 
@@ -17,7 +17,12 @@ export const inventoryTransactions = pgTable('inventory_transactions', {
     notes: text('notes'),
     performedBy: uuid('performed_by').references(() => users.id), // User who made the movement
     createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    // Index on medicineId for fast per-medicine audit trail lookups
+    medicineIdIdx: index('inv_transactions_medicine_id_idx').on(table.medicineId),
+    // Index on performedBy for user activity reporting
+    performedByIdx: index('inv_transactions_performed_by_idx').on(table.performedBy),
+}));
 
 // 2. Purchase Orders Table (Restocking orders sent to suppliers)
 export const purchaseOrders = pgTable('purchase_orders', {
@@ -41,7 +46,12 @@ export const purchaseOrderItems = pgTable('purchase_order_items', {
     quantity: integer('quantity').notNull(),
     unitCost: decimal('unit_cost', { precision: 10, scale: 2 }).notNull(),
     totalCost: decimal('total_cost', { precision: 12, scale: 2 }).notNull(),
-});
+}, (table) => ({
+    // Index on purchaseOrderId for fast join when fetching order details
+    purchaseOrderIdIdx: index('po_items_purchase_order_id_idx').on(table.purchaseOrderId),
+    // Index on medicineId for joining medicine details
+    medicineIdIdx: index('po_items_medicine_id_idx').on(table.medicineId),
+}));
 
 // 4. Sales Table (POS checkout transactions)
 export const sales = pgTable('sales', {
@@ -69,4 +79,9 @@ export const saleItems = pgTable('sale_items', {
     quantity: integer('quantity').notNull(),
     unitPrice: decimal('unit_price', { precision: 10, scale: 2 }).notNull(),
     totalPrice: decimal('total_price', { precision: 12, scale: 2 }).notNull(),
-});
+}, (table) => ({
+    // Index on saleId for fast sale item retrieval
+    saleIdIdx: index('sale_items_sale_id_idx').on(table.saleId),
+    // Index on medicineId for medicine-level sales reporting
+    medicineIdIdx: index('sale_items_medicine_id_idx').on(table.medicineId),
+}));

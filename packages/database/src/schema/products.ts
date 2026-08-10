@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, integer, decimal, date } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, integer, decimal, date, boolean, index, unique } from 'drizzle-orm/pg-core';
 
 // 1. Categories Table (e.g., Antibiotics, Analgesics, Vitamins, Syrup)
 export const categories = pgTable('categories', {
@@ -34,7 +34,7 @@ export const medicines = pgTable('medicines', {
     name: varchar('name', { length: 200 }).notNull(), // Commercial name (e.g., Augmentin)
     genericName: varchar('generic_name', { length: 200 }).notNull(), // Active ingredient (e.g., Amoxicillin/Clavulanate)
     brand: varchar('brand', { length: 100 }),
-    barcode: varchar('barcode', { length: 100 }).unique(),
+    barcode: varchar('barcode', { length: 100 }),
     batchNumber: varchar('batch_number', { length: 100 }).notNull(),
     categoryId: uuid('category_id').references(() => categories.id).notNull(),
     manufacturerId: uuid('manufacturer_id').references(() => manufacturers.id).notNull(),
@@ -44,9 +44,17 @@ export const medicines = pgTable('medicines', {
     expiryDate: date('expiry_date').notNull(),
     minStockLevel: integer('min_stock_level').default(10).notNull(), // Threshold for low stock alert
     imageUrl: text('image_url'),
+    // Soft-delete flag: set to true instead of physically deleting to preserve FK references in sales/PO history
+    isArchived: boolean('is_archived').default(false).notNull(),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    // Indexes to speed up category/supplier filter queries on the medicine list
+    categoryIdIdx: index('medicines_category_id_idx').on(table.categoryId),
+    supplierIdIdx: index('medicines_supplier_id_idx').on(table.supplierId),
+    manufacturerIdIdx: index('medicines_manufacturer_id_idx').on(table.manufacturerId),
+    barcodeBatchUnique: unique('medicines_barcode_batch_unique').on(table.barcode, table.batchNumber),
+}));
 
 // 5. Inventory Table (Real-time stock tracking per medicine)
 export const inventory = pgTable('inventory', {
@@ -56,4 +64,7 @@ export const inventory = pgTable('inventory', {
     locationInStore: varchar('location_in_store', { length: 100 }), // e.g., "Shelf A3, Row 2"
     lastRestockedDate: timestamp('last_restocked_date').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+}, (table) => ({
+    // Index on medicineId for fast inventory lookups during sales/adjustments
+    medicineIdIdx: index('inventory_medicine_id_idx').on(table.medicineId),
+}));

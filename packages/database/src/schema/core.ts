@@ -1,4 +1,4 @@
-import { pgTable, uuid, varchar, text, timestamp, boolean, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, text, timestamp, boolean, jsonb } from 'drizzle-orm/pg-core';
 
 // 1. Roles Table (Owner, Admin, Pharmacist, Cashier, Inventory Manager)
 export const roles = pgTable('roles', {
@@ -40,15 +40,4 @@ export const employees = pgTable('employees', {
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// 5. Settings Table (Store configurations, tax rates, currency, etc.)
-export const settings = pgTable('settings', {
-    id: uuid('id').primaryKey().defaultRandom(),
-    storeName: varchar('store_name', { length: 255 }).notNull(),
-    phone: varchar('phone', { length: 50 }).notNull(),
-    email: varchar('email', { length: 255 }).notNull(),
-    address: text('address').notNull(),
-    currency: varchar('currency', { length: 10 }).default('ETB').notNull(), // Default Ethiopian Birr or adjust as needed
-    taxRate: integer('tax_rate').default(15).notNull(), // Stored as percentage or basis points
-    receiptFooter: text('receipt_footer'),
-    updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+
