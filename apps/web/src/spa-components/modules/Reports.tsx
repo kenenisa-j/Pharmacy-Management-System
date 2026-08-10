@@ -81,7 +81,7 @@ export const ReportsPage: React.FC = () => {
                     </div>
                     <div>
                         <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Revenue</span>
-                        <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">${metrics.revenue.toFixed(2)}</h3>
+                        <h3 className="text-xl font-extrabold text-gray-900 mt-0.5">ETB {metrics.revenue.toFixed(2)}</h3>
                     </div>
                 </div>
 

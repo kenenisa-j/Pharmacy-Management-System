@@ -111,7 +111,7 @@ export const Dashboard: React.FC = () => {
                 <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 flex items-center justify-between">
                     <div>
                         <p className="text-xs font-medium text-gray-400">Total Revenue</p>
-                        <p className="text-2xl font-bold text-white mt-1">${metrics.totalRevenue.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-white mt-1">ETB {metrics.totalRevenue.toFixed(2)}</p>
                     </div>
                     <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
                         <DollarSign className="h-6 w-6" />
@@ -264,7 +264,7 @@ export const Dashboard: React.FC = () => {
                                         <tr key={sale.id} className="hover:bg-gray-800/30">
                                             <td className="py-3 font-medium text-white">{sale.invoiceNumber}</td>
                                             <td className="py-3 text-gray-400 uppercase text-xs">{sale.paymentMethod}</td>
-                                            <td className="py-3 text-right font-semibold text-emerald-400">${Number(sale.totalAmount).toFixed(2)}</td>
+                                            <td className="py-3 text-right font-semibold text-emerald-400">ETB {Number(sale.totalAmount).toFixed(2)}</td>
                                         </tr>
                                     ))
                                 ) : (

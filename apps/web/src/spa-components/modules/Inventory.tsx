@@ -249,8 +249,8 @@ export const InventoryPage: React.FC = () => {
                                                 </button>
                                             </td>
                                             <td className="py-3 px-4">
-                                                <div className="font-medium text-gray-900">${med.sellingPrice}</div>
-                                                <div className="text-xs text-gray-400">Cost: ${med.unitPrice}</div>
+                                                <div className="font-medium text-gray-900">ETB {med.sellingPrice}</div>
+                                                <div className="text-xs text-gray-400">Cost: ETB {med.unitPrice}</div>
                                             </td>
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center gap-2">

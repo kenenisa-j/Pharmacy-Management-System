@@ -189,7 +189,7 @@ export const CustomersPage: React.FC = () => {
                                     </div>
                                     <div className="text-right flex items-center gap-2">
                                         <div>
-                                            <p className="text-xs font-bold text-indigo-600">${Number(c.outstandingBalance).toFixed(2)}</p>
+                                            <p className="text-xs font-bold text-indigo-600">ETB {Number(c.outstandingBalance).toFixed(2)}</p>
                                             <span className="text-[10px] text-gray-400">Balance</span>
                                         </div>
                                         <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -219,7 +219,7 @@ export const CustomersPage: React.FC = () => {
                                     <DollarSign className="w-6 h-6 text-indigo-600" />
                                     <div>
                                         <span className="text-[10px] uppercase font-bold text-indigo-500 block">Outstanding Credit</span>
-                                        <span className="text-base font-extrabold text-indigo-900">${Number(selectedCustomer.outstandingBalance).toFixed(2)}</span>
+                                        <span className="text-base font-extrabold text-indigo-900">ETB {Number(selectedCustomer.outstandingBalance).toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -270,7 +270,7 @@ export const CustomersPage: React.FC = () => {
                                                     <span className="font-bold text-gray-900">Receipt #{sale.receiptNumber}</span>
                                                     <p className="text-gray-500 mt-0.5">{new Date(sale.createdAt).toLocaleString()} • {sale.paymentMethod}</p>
                                                 </div>
-                                                <span className="font-extrabold text-indigo-600">${Number(sale.totalAmount).toFixed(2)}</span>
+                                                <span className="font-extrabold text-indigo-600">ETB {Number(sale.totalAmount).toFixed(2)}</span>
                                             </div>
                                         ))
                                     )}
