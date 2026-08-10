@@ -93,7 +93,7 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
                         expiryDate: medicines.expiryDate,
                     })
                     .from(medicines)
-                    .leftJoin(inventory, eq(medicines.id, inventory.medicineId))
+                    .innerJoin(inventory, eq(medicines.id, inventory.medicineId))
                     .where(eq(medicines.id, cartItem.medicineId as string))
                     .for('update') // Acquire pessimistic write lock — blocks concurrent reads on same rows
                     .limit(1);
