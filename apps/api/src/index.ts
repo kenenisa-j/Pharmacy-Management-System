@@ -27,12 +27,23 @@ const app = express();
 // ──────────────────────────────────────────────
 
 // CORS Configuration (Allowing Next.js frontend origin)
-const allowedOrigins = ['http://localhost:3000', 'http://127.0.0.1:3000', 'http://localhost:3001', 'http://localhost:3002'];
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://localhost:3001',
+    'http://localhost:3002',
+    process.env.FRONTEND_URL
+].filter(Boolean) as string[];
+
 app.use(
     cors({
         origin: (origin, callback) => {
             // Allow non-browser tools (Postman, mobile apps, curl) with no origin
-            if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            if (
+                !origin ||
+                allowedOrigins.indexOf(origin) !== -1 ||
+                origin.endsWith('.vercel.app')
+            ) {
                 callback(null, true);
             } else {
                 // Reject silently instead of throwing — Express 5 propagates
