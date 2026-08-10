@@ -6,7 +6,9 @@ import { PERMISSIONS } from '../config/roles.js';
 const router = Router();
 
 router.route('/')
+    // Any authenticated user can read store settings (needed by cashiers for tax/currency)
     .get(authenticateToken, getAllSettings)
-    .put(authenticateToken, requirePermission(PERMISSIONS.MANAGE_USERS), updateSettings);
+    // Only users with MANAGE_SETTINGS permission (Owner) can update settings
+    .put(authenticateToken, requirePermission(PERMISSIONS.MANAGE_SETTINGS), updateSettings);
 
 export default router;

@@ -51,7 +51,8 @@ export const uploadAndAttachPrescription = async (req: Request, res: Response, n
             return next(new AppError('Prescription document file (image or PDF) is required', StatusCodes.BAD_REQUEST));
         }
 
-        const fileUrl = `/uploads/prescriptions/${req.file.filename}`;
+        // Store the URL as the authenticated API endpoint instead of the public static path
+        const fileUrl = `/api/prescriptions/view/${req.file.filename}`;
 
         const [newPrescription] = await db
             .insert(customerPrescriptions)
@@ -97,6 +98,53 @@ export const getAllPrescriptions = async (req: Request, res: Response, next: Nex
             results: results.length,
             data: results,
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Securely stream a prescription file — requires authenticated session
+// Replaces the unauthenticated express.static(/uploads/prescriptions) mount
+export const viewPrescriptionFile = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { filename } = req.params;
+
+        // Sanitize the filename to prevent path traversal attacks (e.g. ../../etc/passwd)
+        const safeName = path.basename(filename as string);
+
+        // Only allow files that match our generated naming pattern: rx-<digits>-<digits>.<ext>
+        if (!/^rx-\d+-\d+\.(jpg|jpeg|png|pdf)$/i.test(safeName)) {
+            return next(new AppError('Invalid or disallowed prescription filename', StatusCodes.BAD_REQUEST));
+        }
+
+        const filePath = path.join(process.cwd(), 'uploads', 'prescriptions', safeName);
+
+        if (!fs.existsSync(filePath)) {
+            return next(new AppError('Prescription file not found', StatusCodes.NOT_FOUND));
+        }
+
+        // Derive content type from extension
+        const ext = path.extname(safeName).toLowerCase();
+        const contentTypeMap: Record<string, string> = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.pdf': 'application/pdf',
+        };
+        const contentType = contentTypeMap[ext] || 'application/octet-stream';
+
+        res.setHeader('Content-Type', contentType);
+        // Prevent the browser from caching patient files
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+
+        // Stream the file securely
+        const fileStream = fs.createReadStream(filePath);
+        fileStream.on('error', () => {
+            next(new AppError('Error streaming prescription file', StatusCodes.INTERNAL_SERVER_ERROR));
+        });
+        fileStream.pipe(res);
     } catch (error) {
         next(error);
     }

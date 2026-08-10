@@ -48,15 +48,15 @@ export const getDashboardAnalytics = async (req: Request, res: Response, next: N
             .leftJoin(medicines, eq(categories.id, medicines.categoryId))
             .groupBy(categories.name);
 
-        // 4. Revenue Trends (Recent sales grouped by date)
+        // 4. Revenue Trends (Recent sales grouped by date in local Ethiopia timezone)
         const revenueTrends = await db
             .select({
-                date: sql<string>`DATE(${sales.createdAt})`,
+                date: sql<string>`DATE(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa')`,
                 revenue: sum(sales.totalAmount),
             })
             .from(sales)
-            .groupBy(sql`DATE(${sales.createdAt})`)
-            .orderBy(sql`DATE(${sales.createdAt})`)
+            .groupBy(sql`DATE(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa')`)
+            .orderBy(sql`DATE(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa')`)
             .limit(7);
 
         // 5. Recent Sales & Notifications

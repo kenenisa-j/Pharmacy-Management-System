@@ -154,6 +154,11 @@ export const addCustomerPrescription = async (req: Request, res: Response, next:
         const id = req.params.id as string; // customerId
         const { doctorName, prescriptionNumber, notes, imageUrl } = req.body;
 
+        // Secure verification of prescription image URL: must match our secure viewer pattern
+        if (imageUrl && !/^\/api\/prescriptions\/view\/rx-\d+-\d+\.(jpg|jpeg|png|pdf)$/i.test(imageUrl)) {
+            return next(new AppError('Invalid prescription document file URL pattern', StatusCodes.BAD_REQUEST));
+        }
+
         const [customer] = await db
             .select()
             .from(customers)

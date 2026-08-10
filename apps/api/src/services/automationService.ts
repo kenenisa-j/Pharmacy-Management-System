@@ -56,7 +56,7 @@ export const processSaleAutomation = async (
         // 4. Create Notification for Successful Sale Transaction
         await db.insert(notifications).values({
             title: 'New Sale Recorded',
-            message: `Receipt #${receiptNumber} processed successfully for $${totalAmount.toFixed(2)}.`,
+            message: `Receipt #${receiptNumber} processed successfully for ETB ${totalAmount.toFixed(2)}.`,
             type: 'PURCHASE',
             isRead: 0,
         });
@@ -69,7 +69,7 @@ export const processSaleAutomation = async (
             userId: userId || 'System',
             userName: userName || 'POS Cashier / System',
             action: 'AUTOMATED_SALE_TRIGGER',
-            details: `Processed sale receipt #${receiptNumber} amounting to $${totalAmount.toFixed(2)} with inventory synchronization.`,
+            details: `Processed sale receipt #${receiptNumber} amounting to ETB ${totalAmount.toFixed(2)} with inventory synchronization.`,
             ipAddress: ipAddress || null,
             userAgent: userAgent || null,
         });

@@ -146,39 +146,56 @@ export const receivePurchaseOrder = async (req: Request, res: Response, next: Ne
         const id = req.params.id as string;
         const userId = req.user?.userId;
 
-        const [order] = await db
-            .select()
+        // Quick existence check before entering the transaction
+        const [exists] = await db
+            .select({ id: purchaseOrders.id })
             .from(purchaseOrders)
             .where(eq(purchaseOrders.id, id))
             .limit(1);
 
-        if (!order) {
+        if (!exists) {
             return next(new AppError('Purchase order not found', StatusCodes.NOT_FOUND));
         }
 
-        if (order.status === 'RECEIVED') {
-            return next(new AppError('This purchase order has already been received and processed', StatusCodes.BAD_REQUEST));
-        }
-
-        // Fetch order items
-        const items = await db
-            .select()
-            .from(purchaseOrderItems)
-            .where(eq(purchaseOrderItems.purchaseOrderId, id));
-
         await db.transaction(async (tx) => {
-            // 1. Update purchase order status
+            // 1. Lock the purchase order row inside the transaction to prevent double-receiving
+            //    Two simultaneous requests will serialize here; only one will proceed.
+            const [order] = await tx
+                .select()
+                .from(purchaseOrders)
+                .where(eq(purchaseOrders.id, id))
+                .for('update') // Acquires pessimistic write lock
+                .limit(1);
+
+            if (!order) {
+                throw new AppError('Purchase order not found', StatusCodes.NOT_FOUND);
+            }
+
+            // Re-check status AFTER acquiring the lock (the first request sets it to RECEIVED;
+            // the second request sees RECEIVED here and aborts — preventing double stock credit)
+            if (order.status === 'RECEIVED') {
+                throw new AppError('This purchase order has already been received and processed', StatusCodes.BAD_REQUEST);
+            }
+
+            // 2. Fetch order items
+            const items = await tx
+                .select()
+                .from(purchaseOrderItems)
+                .where(eq(purchaseOrderItems.purchaseOrderId, id));
+
+            // 3. Update purchase order status immediately to block concurrent requests
             await tx
                 .update(purchaseOrders)
                 .set({ status: 'RECEIVED', updatedAt: new Date() })
                 .where(eq(purchaseOrders.id, id));
 
-            // 2. Process each item: update stock & log inventory transaction movement
+            // 4. Process each item: update stock & log inventory transaction movement
             for (const item of items) {
                 const [invRecord] = await tx
                     .select({ stockQuantity: inventory.stockQuantity })
                     .from(inventory)
                     .where(eq(inventory.medicineId, item.medicineId))
+                    .for('update') // Lock each inventory row too
                     .limit(1);
 
                 if (!invRecord) continue;
@@ -216,6 +233,7 @@ export const receivePurchaseOrder = async (req: Request, res: Response, next: Ne
     }
 
 };
+
 // Update purchase order status (Approve or Cancel)
 export const updateOrderStatus = async (req: Request, res: Response, next: NextFunction) => {
     try {

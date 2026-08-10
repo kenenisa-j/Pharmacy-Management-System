@@ -138,7 +138,7 @@ export const exportSalesPDF = async (req: Request, res: Response, next: NextFunc
 
         allSales.forEach((sale, index) => {
             doc.fontSize(10).text(
-                `${index + 1}. Receipt #${sale.receiptNumber} | Customer: ${sale.customerName || 'Walk-in'} | Total: $${sale.totalAmount} | Method: ${sale.paymentMethod}`
+                `${index + 1}. Receipt #${sale.receiptNumber} | Customer: ${sale.customerName || 'Walk-in'} | Total: ETB ${sale.totalAmount} | Method: ${sale.paymentMethod}`
             );
         });
 

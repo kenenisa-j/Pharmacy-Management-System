@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { db, medicines, categories, suppliers, inventory, manufacturers } from 'database';
-import { eq, ilike, or, desc, lte, and, sql } from 'drizzle-orm';
+import { eq, ilike, or, desc, lte, and, sql, SQL } from 'drizzle-orm';
 import bwipjs from 'bwip-js';
 import { AppError } from '../utils/AppError.js';
 
@@ -21,19 +21,18 @@ export const getAllMedicines = async (req: Request, res: Response, next: NextFun
         const pageSize = Math.max(1, parseInt(limit as string, 10));
         const offset = (pageNumber - 1) * pageSize;
 
-        // Build dynamic conditions array
-        const conditions = [];
+        // Build dynamic conditions array — always exclude soft-deleted (archived) medicines
+        const conditions: SQL<unknown>[] = [eq(medicines.isArchived, false)];
 
         if (search) {
             const searchTerm = `%${search}%`;
-            conditions.push(
-                or(
-                    ilike(medicines.name, searchTerm),
-                    ilike(medicines.genericName, searchTerm),
-                    ilike(medicines.brand, searchTerm),
-                    ilike(medicines.barcode, searchTerm)
-                )
+            const searchCondition = or(
+                ilike(medicines.name, searchTerm),
+                ilike(medicines.genericName, searchTerm),
+                ilike(medicines.brand, searchTerm),
+                ilike(medicines.barcode, searchTerm)
             );
+            if (searchCondition) conditions.push(searchCondition);
         }
 
         if (categoryId) {
@@ -50,7 +49,7 @@ export const getAllMedicines = async (req: Request, res: Response, next: NextFun
             conditions.push(lte(medicines.expiryDate, new Date().toISOString().split('T')[0]));
         }
 
-        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        const whereClause = and(...conditions);
 
         // 1. Fetch paginated records
         const resultsQuery = db
@@ -163,11 +162,20 @@ export const createMedicine = async (req: Request, res: Response, next: NextFunc
             expiryDate,
         } = req.body;
 
-        // Check if barcode already exists
-        if (barcode) {
-            const existing = await db.select().from(medicines).where(eq(medicines.barcode, barcode)).limit(1);
+        // Check if a medicine with the same barcode and same batch number already exists
+        if (barcode && batchNumber) {
+            const existing = await db
+                .select()
+                .from(medicines)
+                .where(
+                    and(
+                        eq(medicines.barcode, barcode),
+                        eq(medicines.batchNumber, batchNumber)
+                    )
+                )
+                .limit(1);
             if (existing.length > 0) {
-                return next(new AppError('A medicine with this barcode already exists', StatusCodes.BAD_REQUEST));
+                return next(new AppError(`A medicine record with barcode "${barcode}" and batch number "${batchNumber}" already exists`, StatusCodes.BAD_REQUEST));
             }
         }
 
@@ -257,20 +265,36 @@ export const updateMedicine = async (req: Request, res: Response, next: NextFunc
     }
 };
 
-// Delete medicine record
+// Soft-delete medicine record (sets isArchived = true)
+// Physical deletion is NOT performed to preserve foreign-key references in sales and purchase order history.
 export const deleteMedicine = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { id } = req.params;
 
-        const [deleted] = await db.delete(medicines).where(eq(medicines.id, id as string)).returning();
+        // Check the medicine exists and is not already archived
+        const [existing] = await db
+            .select({ id: medicines.id, name: medicines.name, isArchived: medicines.isArchived })
+            .from(medicines)
+            .where(eq(medicines.id, id as string))
+            .limit(1);
 
-        if (!deleted) {
+        if (!existing) {
             return next(new AppError('Medicine not found', StatusCodes.NOT_FOUND));
         }
 
+        if (existing.isArchived) {
+            return next(new AppError('Medicine has already been archived', StatusCodes.BAD_REQUEST));
+        }
+
+        // Soft-delete: mark as archived, preserve all historical FK references
+        await db
+            .update(medicines)
+            .set({ isArchived: true, updatedAt: new Date() })
+            .where(eq(medicines.id, id as string));
+
         res.status(StatusCodes.OK).json({
             status: 'success',
-            message: 'Medicine removed from catalog',
+            message: `Medicine "${existing.name}" has been archived and removed from active catalog`,
         });
     } catch (error) {
         next(error);

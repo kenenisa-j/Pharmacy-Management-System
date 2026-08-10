@@ -14,7 +14,7 @@ import purchaseOrderRouter from './routes/purchaseOrderRoutes.js';
 import salesRouter from './routes/salesRoutes.js';
 import customerRouter from './routes/customerRoutes.js';
 import prescriptionRouter from './routes/prescriptionRoutes.js';
-import path from 'path';
+
 import notificationRouter from './routes/notificationRoutes.js';
 import reportRouter from './routes/reportRoutes.js';
 import settingsRouter from './routes/settingsRoutes.js';
@@ -83,8 +83,9 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/audit-logs', auditRouter);
 app.use('/api/notifications', notificationRouter);
 
-// Serve uploaded prescription documents statically
-app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
+// NOTE: Prescription files are NOT served statically.
+// They are streamed through the authenticated endpoint: GET /api/prescriptions/view/:filename
+// This prevents unauthenticated access to patient PHI documents (HIPAA compliance).
 
 // ──────────────────────────────────────────────
 // 4. Handle Unhandled Routes (404)

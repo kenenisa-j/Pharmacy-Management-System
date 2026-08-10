@@ -80,22 +80,32 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
             let subtotal = 0;
             const validatedItems = [];
 
-            // 1. Verify stock and calculate totals
+            // 1. Verify stock and calculate totals (with pessimistic row-level locking)
             for (const cartItem of items) {
+                // Lock the medicine + inventory rows for the duration of the transaction
+                // This prevents two concurrent checkouts from reading the same stale stock value
                 const [medicine] = await tx
                     .select({
                         id: medicines.id,
                         name: medicines.name,
                         unitPrice: medicines.unitPrice,
                         stockQuantity: inventory.stockQuantity,
+                        expiryDate: medicines.expiryDate,
                     })
                     .from(medicines)
                     .leftJoin(inventory, eq(medicines.id, inventory.medicineId))
                     .where(eq(medicines.id, cartItem.medicineId as string))
+                    .for('update') // Acquire pessimistic write lock — blocks concurrent reads on same rows
                     .limit(1);
 
                 if (!medicine) {
                     throw new AppError(`Medicine item not found in catalog`, StatusCodes.NOT_FOUND);
+                }
+
+                // Expiry Check validation: reject selling expired medicine
+                const todayStr = new Date().toISOString().split('T')[0];
+                if (medicine.expiryDate && medicine.expiryDate < todayStr) {
+                    throw new AppError(`Cannot sell expired medicine: "${medicine.name}". Expired on ${medicine.expiryDate}`, StatusCodes.BAD_REQUEST);
                 }
 
                 const requestedQty = Number(cartItem.quantity);
@@ -118,6 +128,7 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
                     currentStock,
                 });
             }
+
 
             const discount = Number(discountAmount || 0);
             const grandTotal = Math.max(0, subtotal - discount);

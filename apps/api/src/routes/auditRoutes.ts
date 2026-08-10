@@ -5,6 +5,7 @@ import { PERMISSIONS } from '../config/roles.js';
 
 const router = Router();
 
-router.get('/', authenticateToken, requirePermission(PERMISSIONS.MANAGE_USERS), getAllAuditLogs);
+// Only users with VIEW_AUDIT_LOGS permission (Owner) can access audit records
+router.get('/', authenticateToken, requirePermission(PERMISSIONS.VIEW_AUDIT_LOGS), getAllAuditLogs);
 
 export default router;

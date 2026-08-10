@@ -23,47 +23,53 @@ export const recordInventoryMovement = async (req: Request, res: Response, next:
             return next(new AppError('Quantity change must be a valid non-zero number', StatusCodes.BAD_REQUEST));
         }
 
-        // 1. Fetch current medicine record with stock
-        const [medicine] = await db
-            .select({
-                id: medicines.id,
-                name: medicines.name,
-                stock: inventory.stockQuantity,
-            })
+        // Verify the medicine exists before entering the transaction
+        const [medicineCheck] = await db
+            .select({ id: medicines.id, name: medicines.name })
             .from(medicines)
-            .leftJoin(inventory, eq(medicines.id, inventory.medicineId))
             .where(eq(medicines.id, medicineId))
             .limit(1);
 
-        if (!medicine) {
+        if (!medicineCheck) {
             return next(new AppError('Medicine not found in catalog', StatusCodes.NOT_FOUND));
         }
 
-        const currentStock = Number(medicine.stock || 0);
-        let stockDelta = qty;
-
-        // Type classification rules
-        if (['DAMAGE_REMOVAL', 'EXPIRED_REMOVAL', 'SALE_OUT', 'THEFT_LOSS', 'SALE_DEDUCT'].includes(type)) {
-            stockDelta = -Math.abs(qty);
-        } else if (['PURCHASE_RECEIVE', 'RETURN_RESTOCK', 'RESTOCK'].includes(type)) {
-            stockDelta = Math.abs(qty);
-        } else if (type === 'PHYSICAL_COUNT_ADJUSTMENT' || type === 'SALE' || type === 'ADJUSTMENT' || type === 'RETURN' || type === 'DAMAGE') {
-            stockDelta = qty; // Can be positive or negative variance
-        } else {
-            return next(new AppError('Invalid inventory transaction movement type', StatusCodes.BAD_REQUEST));
-        }
-
-        const newStockLevel = currentStock + stockDelta;
-
-        if (newStockLevel < 0) {
-            return next(
-                new AppError(`Stock deficit error. Attempting to reduce stock below zero (Current: ${currentStock}, Requested Reduction: ${Math.abs(stockDelta)})`, StatusCodes.BAD_REQUEST)
-            );
-        }
-
-        // 2. Execute atomic database transaction
+        // Execute atomic transaction — stock read is INSIDE the lock to prevent race conditions
         const [transactionRecord] = await db.transaction(async (tx) => {
-            // Update main inventory stock counter in inventory table
+            // 1. Fetch current stock with pessimistic write lock (prevents concurrent adjustments)
+            const [stockRecord] = await tx
+                .select({
+                    stock: inventory.stockQuantity,
+                })
+                .from(inventory)
+                .where(eq(inventory.medicineId, medicineId))
+                .for('update') // Acquires row-level lock for duration of transaction
+                .limit(1);
+
+            const currentStock = Number(stockRecord?.stock || 0);
+            let stockDelta = qty;
+
+            // Type classification rules
+            if (['DAMAGE_REMOVAL', 'EXPIRED_REMOVAL', 'SALE_OUT', 'THEFT_LOSS', 'SALE_DEDUCT'].includes(type)) {
+                stockDelta = -Math.abs(qty);
+            } else if (['PURCHASE_RECEIVE', 'RETURN_RESTOCK', 'RESTOCK'].includes(type)) {
+                stockDelta = Math.abs(qty);
+            } else if (type === 'PHYSICAL_COUNT_ADJUSTMENT' || type === 'SALE' || type === 'ADJUSTMENT' || type === 'RETURN' || type === 'DAMAGE') {
+                stockDelta = qty; // Can be positive or negative variance
+            } else {
+                throw new AppError('Invalid inventory transaction movement type', StatusCodes.BAD_REQUEST);
+            }
+
+            const newStockLevel = currentStock + stockDelta;
+
+            if (newStockLevel < 0) {
+                throw new AppError(
+                    `Stock deficit error. Attempting to reduce stock below zero (Current: ${currentStock}, Requested Reduction: ${Math.abs(stockDelta)})`,
+                    StatusCodes.BAD_REQUEST
+                );
+            }
+
+            // 2. Update main inventory stock counter in inventory table
             await tx
                 .update(inventory)
                 .set({
@@ -72,7 +78,7 @@ export const recordInventoryMovement = async (req: Request, res: Response, next:
                 })
                 .where(eq(inventory.medicineId, medicineId));
 
-            // Insert comprehensive audit log with user tracking and reason
+            // 3. Insert comprehensive audit log with user tracking and reason
             const [inserted] = await tx
                 .insert(inventoryTransactions)
                 .values({
@@ -97,10 +103,10 @@ export const recordInventoryMovement = async (req: Request, res: Response, next:
             message: 'Stock movement logged and inventory updated successfully',
             data: {
                 transactionId: transactionRecord.id,
-                medicineName: medicine.name,
-                previousStock: currentStock,
-                newStock: newStockLevel,
-                change: stockDelta,
+                medicineName: medicineCheck.name,
+                previousStock: transactionRecord.previousStock,
+                newStock: transactionRecord.newStock,
+                change: transactionRecord.quantityChange,
                 reason: transactionRecord.reason,
                 performedBy: userId,
                 timestamp: transactionRecord.createdAt,
