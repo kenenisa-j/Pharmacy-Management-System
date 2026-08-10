@@ -1,8 +1,16 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 
+if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
+    if (process.env.NODE_ENV === 'production') {
+        throw new Error('FATAL: JWT secrets (JWT_SECRET / JWT_REFRESH_SECRET) are not configured in production environment variables!');
+    } else {
+        console.warn('⚠️ WARNING: JWT secrets are not specified. Using development fallback keys.');
+    }
+}
+
 // Fallback secrets for development if not provided in .env
-const JWT_ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || 'pharmacy_access_secret_key_change_me';
+const JWT_ACCESS_SECRET = process.env.JWT_SECRET || 'pharmacy_access_secret_key_change_me';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'pharmacy_refresh_secret_key_change_me';
 
 export interface TokenPayload {
