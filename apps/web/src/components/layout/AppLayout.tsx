@@ -58,9 +58,9 @@ export const AppLayout: React.FC = () => {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
                 <div className="flex h-16 items-center justify-between px-6 border-b border-gray-800">
-                    <div className="flex items-center space-x-2">
-                        <Pill className="h-6 w-6 text-indigo-500" />
-                        <span className="text-lg font-bold tracking-wide">Pharmacy ERP</span>
+                    <div className="flex items-center space-x-3">
+                        <img src="/favicon.svg" alt="PharmaFlow Logo" className="h-7 w-7" />
+                        <span className="text-lg font-bold tracking-wide text-white">PharmaFlow ERP</span>
                     </div>
                     <button onClick={() => setSidebarOpen(false)} className="lg:hidden text-gray-400 hover:text-white">
                         <X className="h-6 w-6" />
