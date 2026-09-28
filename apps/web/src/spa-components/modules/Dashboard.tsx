@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { DollarSign, Pill, ShoppingBag, AlertTriangle, TrendingUp, BarChart2 } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Pill, AlertTriangle } from 'lucide-react';
 import { api } from '../../lib/api';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar, CartesianGrid } from 'recharts';
+import {
+    ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts';
 import { useAuthStore } from '../../store/useAuthStore';
 import { InventoryDashboard } from './InventoryDashboard';
 import { Link } from 'react-router-dom';
@@ -13,20 +15,9 @@ interface DashboardData {
         totalMedicines: number;
         lowStockCount: number;
     };
-    lowStockItems: Array<{
-        id: string;
-        name: string;
-        stock: number;
-        minStockLevel: number;
-    }>;
-    categoryDistribution: Array<{
-        name: string;
-        value: number;
-    }>;
-    revenueTrends: Array<{
-        date: string;
-        revenue: number;
-    }>;
+    lowStockItems: Array<{ id: string; name: string; stock: number; minStockLevel: number }>;
+    categoryDistribution: Array<{ name: string; value: number }>;
+    revenueTrends: Array<{ date: string; revenue: number }>;
     recentSales: Array<{
         id: string;
         invoiceNumber: string;
@@ -36,6 +27,46 @@ interface DashboardData {
     }>;
 }
 
+/* ── tiny helpers ─────────────────────────────────────────────────────────── */
+const fmt = (n: number) =>
+    n >= 1_000_000
+        ? `${(n / 1_000_000).toFixed(1)}M`
+        : n >= 1_000
+        ? `${(n / 1_000).toFixed(1)}K`
+        : n.toFixed(2);
+
+const initials = (email: string) =>
+    email ? email.slice(0, 2).toUpperCase() : '??';
+
+const greeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 18) return 'Good afternoon';
+    return 'Good evening';
+};
+
+const shortDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+};
+
+/* ── custom tooltip ───────────────────────────────────────────────────────── */
+const CustomTooltip = ({ active, payload, label }: any) => {
+    if (!active || !payload?.length) return null;
+    return (
+        <div style={{
+            background: '#161b2e', border: '1px solid rgba(255,255,255,.10)',
+            borderRadius: 10, padding: '10px 14px',
+        }}>
+            <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginBottom: 4 }}>{label}</p>
+            <p style={{ color: '#34d399', fontWeight: 700, fontSize: 14 }}>
+                ETB {Number(payload[0].value).toFixed(2)}
+            </p>
+        </div>
+    );
+};
+
+/* ══════════════════════════════════════════════════════════════════════════ */
 export const Dashboard: React.FC = () => {
     const { user } = useAuthStore();
     const [data, setData] = useState<DashboardData | null>(null);
@@ -47,235 +78,260 @@ export const Dashboard: React.FC = () => {
             setLoading(false);
             return;
         }
-
-        const fetchAnalytics = async () => {
+        const fetch$ = async () => {
             try {
-                const response = await api.get('/analytics/dashboard');
-                setData(response.data.data);
-            } catch (err: any) {
-                setError(err.response?.data?.message || 'Failed to load dashboard metrics');
+                const res = await api.get('/analytics/dashboard');
+                setData(res.data.data);
+            } catch (e: any) {
+                setError(e.response?.data?.message || 'Failed to load dashboard.');
             } finally {
                 setLoading(false);
             }
         };
-        fetchAnalytics();
+        fetch$();
     }, [user]);
 
+    /* ── role gates ─────────────────────────────────────────────────────── */
     if (loading) {
-        return <div className="flex h-64 items-center justify-center text-gray-400">Loading dashboard analytics...</div>;
+        return (
+            <div style={{ display: 'flex', height: 240, alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.4)', fontSize: 14 }}>
+                Loading dashboard…
+            </div>
+        );
     }
 
-    if (user?.role === 'PHARMACIST') {
-        return <InventoryDashboard />;
-    }
+    if (user?.role === 'PHARMACIST') return <InventoryDashboard />;
 
     if (user?.role === 'CASHIER') {
         return (
-            <div className="space-y-6 max-w-4xl mx-auto">
-                <div className="bg-gray-900 border border-gray-800 p-8 rounded-2xl shadow-xl text-center space-y-6">
-                    <div className="inline-flex h-16 w-16 rounded-full bg-indigo-500/10 text-indigo-400 items-center justify-center">
-                        <ShoppingBag className="h-8 w-8" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold text-white">Welcome back, {user.email}!</h1>
-                        <p className="text-gray-400 mt-2 text-sm">You are logged in as a Cashier. Access the POS terminal to process sales and manage transactions.</p>
-                    </div>
-                    <div>
-                        <Link
-                            to="/pos"
-                            className="inline-flex items-center justify-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-xl shadow-lg shadow-indigo-600/20 transition-all"
-                        >
-                            Open POS Checkout Terminal
-                        </Link>
-                    </div>
+            <div style={{ maxWidth: 520, margin: '60px auto', textAlign: 'center', padding: 24 }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(99,102,241,.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+                    <ShoppingBag size={28} color="#818cf8" />
                 </div>
+                <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, marginBottom: 8 }}>
+                    Welcome back, {user.email}!
+                </h1>
+                <p style={{ color: 'rgba(255,255,255,.4)', fontSize: 14, marginBottom: 24 }}>
+                    You're logged in as Cashier. Head to the POS terminal to process sales.
+                </p>
+                <Link to="/pos" style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 8,
+                    padding: '12px 24px', borderRadius: 12,
+                    background: 'linear-gradient(135deg,#6366f1,#4f46e5)',
+                    color: '#fff', fontWeight: 600, fontSize: 14, textDecoration: 'none',
+                    boxShadow: '0 6px 20px rgba(99,102,241,.35)',
+                }}>
+                    Open POS Terminal
+                </Link>
             </div>
         );
     }
 
     if (error) {
-        return <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-400">{error}</div>;
+        return (
+            <div style={{ background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '14px 18px', color: '#fca5a5', fontSize: 14 }}>
+                {error}
+            </div>
+        );
     }
 
-    const metrics = data?.metrics || { totalRevenue: 0, totalSales: 0, totalMedicines: 0, lowStockCount: 0 };
+    const m = data?.metrics ?? { totalRevenue: 0, totalSales: 0, totalMedicines: 0, lowStockCount: 0 };
+    const name = user?.email?.split('@')[0] ?? 'there';
+
+    /* ── secondary metric cards (right column) ──────────────────────────── */
+    const secondaryCards = [
+        {
+            label: 'Completed Sales',
+            value: m.totalSales.toString(),
+            sub: 'transactions',
+            icon: <ShoppingBag size={14} />,
+            color: '#60a5fa',
+            bg: 'rgba(96,165,250,.12)',
+        },
+        {
+            label: 'Total Medicines',
+            value: m.totalMedicines.toString(),
+            sub: 'products',
+            icon: <Pill size={14} />,
+            color: '#a78bfa',
+            bg: 'rgba(167,139,250,.12)',
+        },
+        {
+            label: 'Low Stock Alerts',
+            value: m.lowStockCount.toString(),
+            sub: m.lowStockCount === 0 ? 'all good' : 'need reorder',
+            icon: <AlertTriangle size={14} />,
+            color: m.lowStockCount > 0 ? '#fbbf24' : '#34d399',
+            bg: m.lowStockCount > 0 ? 'rgba(251,191,36,.12)' : 'rgba(52,211,153,.12)',
+        },
+    ];
 
     return (
-        <div className="space-y-6">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+
+            {/* ── greeting ─────────────────────────────────────────────── */}
             <div>
-                <h1 className="text-2xl font-bold text-white">Dashboard Overview</h1>
-                <p className="text-sm text-gray-400">Real-time operational summary and performance analytics.</p>
+                <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-.4px' }}>
+                    {greeting()}, {name} 👋
+                </h1>
+                <p style={{ color: 'rgba(255,255,255,.38)', fontSize: 13, marginTop: 4 }}>
+                    Here's what's happening at your pharmacy today.
+                </p>
             </div>
 
-            {/* Summary Cards Grid */}
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 flex items-center justify-between">
+            {/* ── primary row: big revenue card + 3 small cards ────────── */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+
+                {/* BIG revenue card */}
+                <div style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1.5px solid rgba(255,255,255,0.08)',
+                    borderRadius: 18, padding: '28px 26px',
+                    display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                    minHeight: 188,
+                }}>
                     <div>
-                        <p className="text-xs font-medium text-gray-400">Total Revenue</p>
-                        <p className="text-2xl font-bold text-white mt-1">ETB {metrics.totalRevenue.toFixed(2)}</p>
+                        <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '.6px', margin: 0 }}>
+                            Total Revenue
+                        </p>
+                        <p style={{ color: '#fff', fontSize: 38, fontWeight: 800, letterSpacing: '-1px', margin: '8px 0 0', lineHeight: 1 }}>
+                            ETB {fmt(m.totalRevenue)}
+                        </p>
                     </div>
-                    <div className="h-12 w-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-                        <DollarSign className="h-6 w-6" />
-                    </div>
-                </div>
-
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-medium text-gray-400">Completed Sales</p>
-                        <p className="text-2xl font-bold text-white mt-1">{metrics.totalSales}</p>
-                    </div>
-                    <div className="h-12 w-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-                        <ShoppingBag className="h-6 w-6" />
-                    </div>
-                </div>
-
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-medium text-gray-400">Total Medicines</p>
-                        <p className="text-2xl font-bold text-white mt-1">{metrics.totalMedicines}</p>
-                    </div>
-                    <div className="h-12 w-12 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
-                        <Pill className="h-6 w-6" />
+                    <div style={{ display: 'flex', gap: 20, marginTop: 18 }}>
+                        {data?.categoryDistribution?.slice(0, 2).map(c => (
+                            <div key={c.name}>
+                                <p style={{ color: 'rgba(255,255,255,.32)', fontSize: 11, margin: '0 0 2px' }}>{c.name}</p>
+                                <p style={{ color: '#fff', fontWeight: 600, fontSize: 14, margin: 0 }}>{c.value} units</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 flex items-center justify-between">
-                    <div>
-                        <p className="text-xs font-medium text-gray-400">Low Stock Alerts</p>
-                        <p className="text-2xl font-bold text-amber-400 mt-1">{metrics.lowStockCount} Items</p>
-                    </div>
-                    <div className="h-12 w-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-                        <AlertTriangle className="h-6 w-6" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Analytics Charts Section */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {/* Revenue Trend Area Chart */}
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6 lg:col-span-2">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-indigo-400" />
-                            Revenue Trends
-                        </h2>
-                        <span className="text-xs text-gray-400">Last 7 active days</span>
-                    </div>
-                    <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={data?.revenueTrends || []}>
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
-                                <YAxis stroke="#9ca3af" fontSize={12} />
-                                <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '0.5rem', color: '#fff' }} />
-                                <Area type="monotone" dataKey="revenue" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#colorRevenue)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-
-                {/* Category Distribution Bar Chart */}
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                            <BarChart2 className="h-5 w-5 text-emerald-400" />
-                            Category Breakdown
-                        </h2>
-                    </div>
-                    <div className="h-72 w-full">
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={data?.categoryDistribution || []}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" vertical={false} />
-                                <XAxis dataKey="name" stroke="#9ca3af" fontSize={10} interval={0} />
-                                <YAxis stroke="#9ca3af" fontSize={12} />
-                                <Tooltip contentStyle={{ backgroundColor: '#111827', borderColor: '#374151', borderRadius: '0.5rem', color: '#fff' }} />
-                                <Bar dataKey="value" fill="#10b981" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                {/* 3 stacked small cards */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {secondaryCards.map(c => (
+                        <div key={c.label} style={{
+                            flex: 1,
+                            background: 'rgba(255,255,255,0.04)',
+                            border: '1.5px solid rgba(255,255,255,0.08)',
+                            borderRadius: 14, padding: '12px 16px',
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        }}>
+                            <div>
+                                <p style={{ color: 'rgba(255,255,255,.38)', fontSize: 11, margin: '0 0 3px', textTransform: 'uppercase', letterSpacing: '.5px' }}>{c.label}</p>
+                                <p style={{ color: '#fff', fontSize: 22, fontWeight: 700, margin: 0, lineHeight: 1 }}>{c.value}</p>
+                            </div>
+                            <div style={{
+                                width: 34, height: 34, borderRadius: 10,
+                                background: c.bg, color: c.color,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                {c.icon}
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
-            {/* Tables Grid: Low Stock & Recent Sales */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                {/* Low Stock Table */}
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                            <AlertTriangle className="h-5 w-5 text-amber-400" />
-                            Low Stock Warnings
-                        </h2>
-                        <span className="text-xs text-gray-400">Requires attention</span>
+            {/* ── revenue chart ─────────────────────────────────────────── */}
+            <div style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1.5px solid rgba(255,255,255,0.08)',
+                borderRadius: 18, padding: '22px 24px',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <TrendingUp size={16} color="#34d399" />
+                        <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Revenue Trend</span>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-300">
-                            <thead className="border-b border-gray-800 text-xs uppercase text-gray-500">
-                                <tr>
-                                    <th className="pb-3 font-medium">Medicine Name</th>
-                                    <th className="pb-3 font-medium">Current Stock</th>
-                                    <th className="pb-3 font-medium">Min Level</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-800/50">
-                                {data?.lowStockItems && data.lowStockItems.length > 0 ? (
-                                    data.lowStockItems.map((item) => (
-                                        <tr key={item.id} className="hover:bg-gray-800/30">
-                                            <td className="py-3 font-medium text-white">{item.name}</td>
-                                            <td className="py-3 text-red-400 font-semibold">{item.stock}</td>
-                                            <td className="py-3 text-gray-400">{item.minStockLevel}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={3} className="py-4 text-center text-gray-500">No low stock items found.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                        {['7d', '30d', '90d'].map((t, i) => (
+                            <span key={t} style={{
+                                fontSize: 11, padding: '3px 10px', borderRadius: 99,
+                                background: i === 0 ? 'rgba(52,211,153,.15)' : 'transparent',
+                                color: i === 0 ? '#34d399' : 'rgba(255,255,255,.3)',
+                                border: i === 0 ? '1px solid rgba(52,211,153,.3)' : '1px solid transparent',
+                                cursor: 'pointer', fontWeight: 500,
+                            }}>{t}</span>
+                        ))}
                     </div>
+                </div>
+                <div style={{ height: 180 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={data?.revenueTrends || []} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                            <defs>
+                                <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#34d399" stopOpacity={0.25} />
+                                    <stop offset="95%" stopColor="#34d399" stopOpacity={0} />
+                                </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,.06)" vertical={false} />
+                            <XAxis dataKey="date" stroke="rgba(255,255,255,.2)" fontSize={11} tickLine={false} axisLine={false} />
+                            <YAxis stroke="rgba(255,255,255,.2)" fontSize={11} tickLine={false} axisLine={false} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Area type="monotone" dataKey="revenue" stroke="#34d399" strokeWidth={2} fillOpacity={1} fill="url(#gRev)" dot={false} />
+                        </AreaChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+
+            {/* ── recent transactions ───────────────────────────────────── */}
+            <div style={{
+                background: 'rgba(255,255,255,0.04)',
+                border: '1.5px solid rgba(255,255,255,0.08)',
+                borderRadius: 18, padding: '22px 24px',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Recent Transactions</span>
+                    <span style={{ color: 'rgba(255,255,255,.3)', fontSize: 12 }}>···</span>
                 </div>
 
-                {/* Recent Sales Table */}
-                <div className="rounded-xl bg-gray-900 border border-gray-800 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-base font-semibold text-white flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-emerald-400" />
-                            Recent Transactions
-                        </h2>
-                        <span className="text-xs text-gray-400">Latest sales history</span>
-                    </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-gray-300">
-                            <thead className="border-b border-gray-800 text-xs uppercase text-gray-500">
-                                <tr>
-                                    <th className="pb-3 font-medium">Invoice #</th>
-                                    <th className="pb-3 font-medium">Method</th>
-                                    <th className="pb-3 font-medium text-right">Amount</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-800/50">
-                                {data?.recentSales && data.recentSales.length > 0 ? (
-                                    data.recentSales.map((sale) => (
-                                        <tr key={sale.id} className="hover:bg-gray-800/30">
-                                            <td className="py-3 font-medium text-white">{sale.invoiceNumber}</td>
-                                            <td className="py-3 text-gray-400 uppercase text-xs">{sale.paymentMethod}</td>
-                                            <td className="py-3 text-right font-semibold text-emerald-400">ETB {Number(sale.totalAmount).toFixed(2)}</td>
-                                        </tr>
-                                    ))
-                                ) : (
-                                    <tr>
-                                        <td colSpan={3} className="py-4 text-center text-gray-500">No recent transactions recorded.</td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                {/* header row */}
+                <div style={{ display: 'grid', gridTemplateColumns: '36px 1fr 80px 80px 70px', gap: 12, padding: '0 0 10px', borderBottom: '1px solid rgba(255,255,255,.06)', marginBottom: 4 }}>
+                    {['', 'Invoice', 'Date', 'Amount', 'Status'].map(h => (
+                        <span key={h} style={{ color: 'rgba(255,255,255,.28)', fontSize: 11, textTransform: 'uppercase', letterSpacing: '.5px', fontWeight: 500 }}>{h}</span>
+                    ))}
                 </div>
+
+                {data?.recentSales && data.recentSales.length > 0 ? (
+                    data.recentSales.map((s) => {
+                        const abbr = s.invoiceNumber?.slice(0, 2).toUpperCase() || 'TX';
+                        return (
+                            <div key={s.id} style={{
+                                display: 'grid', gridTemplateColumns: '36px 1fr 80px 80px 70px',
+                                gap: 12, padding: '10px 0',
+                                borderBottom: '1px solid rgba(255,255,255,.04)',
+                                alignItems: 'center',
+                            }}>
+                                {/* avatar */}
+                                <div style={{
+                                    width: 32, height: 32, borderRadius: 10,
+                                    background: 'rgba(99,102,241,.18)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    fontSize: 10, fontWeight: 700, color: '#a5b4fc',
+                                }}>
+                                    {abbr}
+                                </div>
+                                <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{s.invoiceNumber}</span>
+                                <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 12 }}>{shortDate(s.createdAt)}</span>
+                                <span style={{ color: '#34d399', fontSize: 13, fontWeight: 600 }}>
+                                    ETB {Number(s.totalAmount).toFixed(2)}
+                                </span>
+                                <span style={{
+                                    display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600,
+                                    background: 'rgba(52,211,153,.12)', color: '#34d399',
+                                }}>
+                                    Paid
+                                </span>
+                            </div>
+                        );
+                    })
+                ) : (
+                    <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(255,255,255,.28)', fontSize: 13 }}>
+                        No recent transactions recorded.
+                    </div>
+                )}
             </div>
         </div>
     );
