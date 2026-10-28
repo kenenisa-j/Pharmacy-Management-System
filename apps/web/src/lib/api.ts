@@ -22,7 +22,8 @@ api.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-        if (error.response?.status === 401 && originalRequest && !(originalRequest as any)._retry) {
+        const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || originalRequest?.url?.includes('/auth/refresh');
+        if (error.response?.status === 401 && originalRequest && !(originalRequest as any)._retry && !isAuthEndpoint) {
             (originalRequest as any)._retry = true;
             try {
                 const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';

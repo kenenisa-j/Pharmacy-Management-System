@@ -1,0 +1,19 @@
+{
+  "name": "PharmaFlow ERP - Hospital & Pharmacy Management System",
+  "short_name": "PharmaFlow",
+  "description": "Installable Hospital & Pharmacy Management System with Offline-First Operation",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#030712",
+  "theme_color": "#090d16",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["medical", "business", "productivity"]
+}

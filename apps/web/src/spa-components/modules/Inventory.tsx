@@ -37,6 +37,7 @@ export const InventoryPage: React.FC = () => {
     const canManage = user?.role === 'OWNER' || user?.role === 'PHARMACIST';
     const [medicines, setMedicines] = useState<Medicine[]>([]);
     const [loading, setLoading] = useState(true);
+    const [fetchError, setFetchError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [filter, setFilter] = useState('');
     const [page, setPage] = useState(1);
@@ -131,18 +132,28 @@ export const InventoryPage: React.FC = () => {
     };
 
     const fetchMedicines = useCallback(async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
         try {
             setLoading(true);
+            setFetchError(null);
             const params: Record<string, any> = { page, limit: 10 };
             if (debouncedSearch.trim()) params.search = debouncedSearch.trim();
             if (filter) params.filter = filter;
 
-            const response = await api.get('/medicines', { params });
+            const response = await api.get('/medicines', { params, signal: controller.signal });
             setMedicines(response.data.data);
             setTotalPages(response.data.meta.totalPages);
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to fetch inventory:', error);
+            if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+                setFetchError('Request timed out. The server may be unreachable.');
+            } else {
+                setFetchError(error.response?.data?.message || 'Failed to load inventory. Check your connection.');
+            }
+            setMedicines([]);
         } finally {
+            clearTimeout(timeoutId);
             setLoading(false);
         }
     }, [debouncedSearch, filter, page]);
@@ -220,6 +231,16 @@ export const InventoryPage: React.FC = () => {
                             {loading ? (
                                 <tr>
                                     <td colSpan={canManage ? 6 : 5} className="text-center py-12 text-gray-500">Loading catalog items...</td>
+                                </tr>
+                            ) : fetchError ? (
+                                <tr>
+                                    <td colSpan={canManage ? 6 : 5} className="text-center py-12">
+                                        <div className="flex flex-col items-center gap-2 text-red-500">
+                                            <span className="font-semibold">⚠ Could not load inventory</span>
+                                            <span className="text-sm text-gray-500">{fetchError}</span>
+                                            <button onClick={fetchMedicines} className="mt-2 px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition">Retry</button>
+                                        </div>
+                                    </td>
                                 </tr>
                             ) : medicines.length === 0 ? (
                                 <tr>

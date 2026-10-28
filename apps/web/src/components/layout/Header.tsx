@@ -12,6 +12,7 @@ import {
     CheckCircle,
     X
 } from 'lucide-react';
+import { NetworkSyncIndicator } from '../common/NetworkSyncIndicator';
 
 interface HeaderProps {
     onToggleSidebar: () => void;
@@ -91,6 +92,9 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
             {/* Right: Notifications & User Profile Menu */}
             <div className="flex items-center space-x-4">
+
+                {/* Network & Synchronization Status Indicator */}
+                <NetworkSyncIndicator />
 
                 {/* Notifications Dropdown Trigger */}
                 <div className="relative" ref={notificationRef}>

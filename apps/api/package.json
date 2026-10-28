@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "build": "tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "tsx --test test/offline-sync.test.ts"
   },
   "keywords": [],
   "author": "",

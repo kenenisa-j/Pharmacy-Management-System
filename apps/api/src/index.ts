@@ -14,6 +14,7 @@ import purchaseOrderRouter from './routes/purchaseOrderRoutes.js';
 import salesRouter from './routes/salesRoutes.js';
 import customerRouter from './routes/customerRoutes.js';
 import prescriptionRouter from './routes/prescriptionRoutes.js';
+import appointmentRouter from './routes/appointmentRoutes.js';
 
 import notificationRouter from './routes/notificationRoutes.js';
 import reportRouter from './routes/reportRoutes.js';
@@ -88,6 +89,7 @@ app.use('/api/suppliers', supplierRouter);
 app.use('/api/purchase-orders', purchaseOrderRouter);
 app.use('/api/sales', salesRouter);
 app.use('/api/customers', customerRouter);
+app.use('/api/appointments', appointmentRouter);
 app.use('/api/prescriptions', prescriptionRouter);
 app.use('/api/reports', reportRouter);
 app.use('/api/settings', settingsRouter);

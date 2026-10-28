@@ -79,10 +79,28 @@ export const getCustomerById = async (req: Request, res: Response, next: NextFun
 // Create new customer profile
 export const createCustomer = async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const { name, phone, email, address } = req.body;
+        const { id, name, phone, email, address } = req.body;
 
         if (!name || !phone) {
             return next(new AppError('Customer name and phone number are required', StatusCodes.BAD_REQUEST));
+        }
+
+        // Idempotency check: if client provided an ID and it already exists
+        if (id) {
+            const [existingById] = await db
+                .select()
+                .from(customers)
+                .where(eq(customers.id, id))
+                .limit(1);
+
+            if (existingById) {
+                // Return existing record idempotently
+                return res.status(StatusCodes.OK).json({
+                    status: 'success',
+                    message: 'Customer already exists (idempotent)',
+                    data: existingById,
+                });
+            }
         }
 
         const [existing] = await db
@@ -92,17 +110,23 @@ export const createCustomer = async (req: Request, res: Response, next: NextFunc
             .limit(1);
 
         if (existing) {
-            return next(new AppError('A customer with this phone number already exists', StatusCodes.BAD_REQUEST));
+            return next(new AppError('A customer with this phone number already exists (conflict with existing patient record)', StatusCodes.CONFLICT));
+        }
+
+        const insertValues: any = {
+            name,
+            phone,
+            email: email || null,
+            address: address || null,
+        };
+
+        if (id) {
+            insertValues.id = id;
         }
 
         const [newCustomer] = await db
             .insert(customers)
-            .values({
-                name,
-                phone,
-                email: email || null,
-                address: address || null,
-            })
+            .values(insertValues)
             .returning();
 
         res.status(StatusCodes.CREATED).json({

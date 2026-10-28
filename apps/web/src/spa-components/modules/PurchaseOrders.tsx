@@ -52,6 +52,7 @@ interface Supplier {
 export const PurchaseOrdersPage: React.FC = () => {
     const { user } = useAuthStore();
     const isOwner = user?.role === 'OWNER';
+    const canCreate = user?.role === 'OWNER' || user?.role === 'PHARMACIST';
     const [orders, setOrders] = useState<PurchaseOrder[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [medicines, setMedicines] = useState<Medicine[]>([]);
@@ -255,7 +256,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                     <h1 className="text-2xl font-bold text-white tracking-wide">Purchase Orders</h1>
                     <p className="text-gray-400 text-sm mt-1">Manage restocking, vendor shipments, and supplier invoice intake.</p>
                 </div>
-                {isOwner && (
+                {canCreate && (
                 <button
                     onClick={() => setIsCreateOpen(true)}
                     className="flex items-center justify-center space-x-2 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-lg font-semibold tracking-wide transition-all shadow-lg shadow-indigo-600/20"
@@ -297,7 +298,9 @@ export const PurchaseOrdersPage: React.FC = () => {
                                     </tr>
                                 ) : orders.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} className="text-center py-8 text-gray-400">No purchase orders found. Click Create Order to begin.</td>
+                                        <td colSpan={5} className="text-center py-8 text-gray-400">
+                                            {canCreate ? 'No purchase orders found. Click \'Create Order\' above to begin.' : 'No purchase orders found.'}
+                                        </td>
                                     </tr>
                                 ) : (
                                     orders.map(order => (
