@@ -310,7 +310,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                                                 <div className="text-xs text-gray-500 mt-0.5">{new Date(order.createdAt).toLocaleDateString()}</div>
                                             </td>
                                             <td className="px-6 py-4 text-gray-300">{order.supplierName}</td>
-                                            <td className="px-6 py-4 text-gray-300 font-semibold">ETB {Number(order.totalAmount).toFixed(2)}</td>
+                                            <td className="px-6 py-4 text-gray-300 font-semibold">Birr {Number(order.totalAmount).toFixed(2)}</td>
                                             <td className="px-6 py-4">
                                                 <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getStatusStyle(order.status)}`}>
                                                     {getStatusIcon(order.status)}
@@ -363,7 +363,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                                 </div>
                                 <div>
                                     <span className="text-gray-500 block">Total Amount</span>
-                                    <span className="text-indigo-400 font-semibold">ETB {Number(selectedOrder.totalAmount).toFixed(2)}</span>
+                                    <span className="text-indigo-400 font-semibold">Birr {Number(selectedOrder.totalAmount).toFixed(2)}</span>
                                 </div>
                             </div>
 
@@ -375,9 +375,9 @@ export const PurchaseOrdersPage: React.FC = () => {
                                         <div key={idx} className="flex justify-between items-center p-3 bg-gray-800/20 rounded-lg border border-gray-800/40 text-xs">
                                             <div>
                                                 <div className="font-semibold text-white">{item.medicineName}</div>
-                                                <div className="text-gray-500 mt-0.5">Qty: {item.quantity} × ETB {Number(item.unitCost).toFixed(2)}</div>
+                                                <div className="text-gray-500 mt-0.5">Qty: {item.quantity} × Birr {Number(item.unitCost).toFixed(2)}</div>
                                             </div>
-                                            <div className="text-white font-semibold">ETB {Number(item.totalCost).toFixed(2)}</div>
+                                            <div className="text-white font-semibold">Birr {Number(item.totalCost).toFixed(2)}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -519,7 +519,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Unit Cost Price (ETB)</label>
+                                        <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Unit Cost Price (Birr)</label>
                                         <input
                                             type="number"
                                             step="0.01"
@@ -564,8 +564,8 @@ export const PurchaseOrdersPage: React.FC = () => {
                                                     <tr key={idx} className="hover:bg-gray-800/10">
                                                         <td className="px-4 py-2 font-semibold text-white">{item.medicineName}</td>
                                                         <td className="px-4 py-2 text-center">{item.quantity}</td>
-                                                        <td className="px-4 py-2 text-right">ETB {item.unitCost.toFixed(2)}</td>
-                                                        <td className="px-4 py-2 text-right font-semibold text-indigo-400">ETB {(item.quantity * item.unitCost).toFixed(2)}</td>
+                                                        <td className="px-4 py-2 text-right">Birr {item.unitCost.toFixed(2)}</td>
+                                                        <td className="px-4 py-2 text-right font-semibold text-indigo-400">Birr {(item.quantity * item.unitCost).toFixed(2)}</td>
                                                         <td className="px-4 py-2 text-center">
                                                             <button
                                                                 type="button"
@@ -587,7 +587,7 @@ export const PurchaseOrdersPage: React.FC = () => {
                             <div className="flex items-center justify-between border-t border-gray-800 pt-4">
                                 <div className="text-sm">
                                     <span className="text-gray-400">Total Purchase Value: </span>
-                                    <span className="text-lg font-bold text-white">ETB {orderTotalCost.toFixed(2)}</span>
+                                    <span className="text-lg font-bold text-white">Birr {orderTotalCost.toFixed(2)}</span>
                                 </div>
                                 <div className="flex space-x-3">
                                     <button

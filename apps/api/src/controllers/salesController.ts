@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import { db, sales, saleItems, medicines, categories, inventoryTransactions, notifications, auditLogs, inventory } from 'database';
-import { eq, ilike, or, desc } from 'drizzle-orm';
+import { eq, ilike, or, desc, inArray } from 'drizzle-orm';
 import { AppError } from '../utils/AppError.js';
 
 // Search medicines for POS item lookup (Fast search by name or barcode)
@@ -80,30 +80,30 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
             let subtotal = 0;
             const validatedItems = [];
 
-            // 1. Verify stock and calculate totals (with pessimistic row-level locking)
-            for (const cartItem of items) {
-                // Lock the medicine + inventory rows for the duration of the transaction
-                // This prevents two concurrent checkouts from reading the same stale stock value
-                const [medicine] = await tx
-                    .select({
-                        id: medicines.id,
-                        name: medicines.name,
-                        unitPrice: medicines.unitPrice,
-                        stockQuantity: inventory.stockQuantity,
-                        expiryDate: medicines.expiryDate,
-                    })
-                    .from(medicines)
-                    .innerJoin(inventory, eq(medicines.id, inventory.medicineId))
-                    .where(eq(medicines.id, cartItem.medicineId as string))
-                    .for('update') // Acquire pessimistic write lock — blocks concurrent reads on same rows
-                    .limit(1);
+            // 1. Fetch all medicine + inventory records in ONE single batch query with write lock
+            const medicineIds = items.map(cartItem => cartItem.medicineId as string);
+            const medicineRecords = await tx
+                .select({
+                    id: medicines.id,
+                    name: medicines.name,
+                    unitPrice: medicines.unitPrice,
+                    stockQuantity: inventory.stockQuantity,
+                    expiryDate: medicines.expiryDate,
+                })
+                .from(medicines)
+                .innerJoin(inventory, eq(medicines.id, inventory.medicineId))
+                .where(inArray(medicines.id, medicineIds))
+                .for('update');
 
+            const medMap = new Map(medicineRecords.map(m => [m.id, m]));
+            const todayStr = new Date().toISOString().split('T')[0];
+
+            for (const cartItem of items) {
+                const medicine = medMap.get(cartItem.medicineId as string);
                 if (!medicine) {
                     throw new AppError(`Medicine item not found in catalog`, StatusCodes.NOT_FOUND);
                 }
 
-                // Expiry Check validation: reject selling expired medicine
-                const todayStr = new Date().toISOString().split('T')[0];
                 if (medicine.expiryDate && medicine.expiryDate < todayStr) {
                     throw new AppError(`Cannot sell expired medicine: "${medicine.name}". Expired on ${medicine.expiryDate}`, StatusCodes.BAD_REQUEST);
                 }
@@ -129,7 +129,6 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
                 });
             }
 
-
             const discount = Number(discountAmount || 0);
             const grandTotal = Math.max(0, subtotal - discount);
 
@@ -150,9 +149,15 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
                 })
                 .returning();
 
-            // 3. Insert Sale Items, Deduct Stock, and Trigger Thresholds
+            // 3. Prepare batch inserts for items, transaction logs, and low-stock alerts
+            const saleItemsBatch = [];
+            const inventoryMovementsBatch = [];
+            const notificationsBatch: any[] = [];
+            const inventoryUpdatePromises = [];
+            const lowStockThreshold = 10;
+
             for (const item of validatedItems) {
-                await tx.insert(saleItems).values({
+                saleItemsBatch.push({
                     saleId: newSale.id,
                     medicineId: item.medicineId,
                     quantity: item.quantity,
@@ -162,28 +167,28 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
 
                 const updatedStock = item.currentStock - item.quantity;
 
-                // Update inventory level in inventory table
-                await tx
-                    .update(inventory)
-                    .set({ stockQuantity: updatedStock, updatedAt: new Date() })
-                    .where(eq(inventory.medicineId, item.medicineId));
+                // Push inventory update query
+                inventoryUpdatePromises.push(
+                    tx
+                        .update(inventory)
+                        .set({ stockQuantity: updatedStock, updatedAt: new Date() })
+                        .where(eq(inventory.medicineId, item.medicineId))
+                );
 
-                // Log inventory movement transaction
-                await tx.insert(inventoryTransactions).values({
+                // Push inventory transaction log
+                inventoryMovementsBatch.push({
                     medicineId: item.medicineId,
-                    type: 'SALE_DEDUCT',
+                    type: 'SALE_DEDUCT' as const,
                     quantityChange: -item.quantity,
                     previousStock: item.currentStock,
                     newStock: updatedStock,
                     referenceNumber: receiptNumber,
-                    reason: `Retail Sale Receipt #${receiptNumber}`,
+                    reason: `Retail Sale Ref #${receiptNumber}`,
                     performedBy: cashierId || null,
                 });
 
-                // Automated Low Stock Trigger Check (Threshold <= 10)
-                const lowStockThreshold = 10;
                 if (updatedStock <= lowStockThreshold) {
-                    await tx.insert(notifications).values({
+                    notificationsBatch.push({
                         title: 'Low Stock Alert',
                         message: `Medicine "${item.medicineName}" has dropped to ${updatedStock} units remaining.`,
                         type: 'LOW_STOCK',
@@ -192,23 +197,31 @@ export const createSale = async (req: Request, res: Response, next: NextFunction
                 }
             }
 
-            // 4. Create Notification for Successful Sale Transaction
-            await tx.insert(notifications).values({
+            notificationsBatch.push({
                 title: 'New Sale Recorded',
-                message: `Receipt #${receiptNumber} processed successfully for $${grandTotal.toFixed(2)}.`,
+                message: `Order #${receiptNumber} processed successfully for Birr ${grandTotal.toFixed(2)}.`,
                 type: 'PURCHASE',
                 isRead: 0,
             });
 
+            // 4. Execute batch operations in parallel / single queries
+            await Promise.all([
+                tx.insert(saleItems).values(saleItemsBatch),
+                tx.insert(inventoryTransactions).values(inventoryMovementsBatch),
+                tx.insert(notifications).values(notificationsBatch),
+                ...inventoryUpdatePromises,
+            ]);
+
             // 5. Record Automated Audit Log Entry
+            const itemsSoldSummary = validatedItems.map(it => `${it.medicineName} x${it.quantity}`).join(', ');
             const ipAddress = (req.headers['x-forwarded-for'] || req.socket.remoteAddress)?.toString() || '127.0.0.1';
             const userAgent = req.headers['user-agent'] || 'System POS Terminal';
 
             await tx.insert(auditLogs).values({
                 userId: cashierId || 'System',
                 userName: cashierName,
-                action: 'AUTOMATED_SALE_CHECKOUT',
-                details: `Processed sale receipt #${receiptNumber} amounting to $${grandTotal.toFixed(2)} via ${paymentMethod} with complete inventory synchronization.`,
+                action: 'SALE_CHECKOUT',
+                details: `Sold: ${itemsSoldSummary} • Birr ${grandTotal.toFixed(2)} via ${paymentMethod}`,
                 ipAddress,
                 userAgent,
             });

@@ -3,16 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
     Search,
-    Bell,
     User,
     Settings,
     LogOut,
     Menu,
-    ShieldAlert,
-    CheckCircle,
     X
 } from 'lucide-react';
 import { NetworkSyncIndicator } from '../common/NetworkSyncIndicator';
+import { NotificationDropdown } from '../../spa-components/modules/NotificationDropdown';
 
 interface HeaderProps {
     onToggleSidebar: () => void;
@@ -24,20 +22,15 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
 
     // Dropdown states
     const [profileOpen, setProfileOpen] = useState(false);
-    const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     // Refs for clicking outside to close dropdowns
     const profileRef = useRef<HTMLDivElement>(null);
-    const notificationRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
             if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
                 setProfileOpen(false);
-            }
-            if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
-                setNotificationsOpen(false);
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -48,13 +41,6 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
         await logout();
         navigate('/login');
     };
-
-    // Mock Notifications (Can later connect to your notifications table API)
-    const notifications = [
-        { id: '1', title: 'Low Stock Alert', message: 'Amoxicillin 500mg is below minimum threshold.', type: 'warning', time: '10m ago' },
-        { id: '2', title: 'Expiry Warning', message: 'Batch #B-9942 expires in less than 30 days.', type: 'danger', time: '1h ago' },
-        { id: '3', title: 'Purchase Order Received', message: 'PO #3042 has been successfully verified.', type: 'success', time: '3h ago' },
-    ];
 
     return (
         <header className="flex h-16 items-center justify-between border-b border-gray-800 bg-gray-900/50 backdrop-blur px-6 z-30">
@@ -96,49 +82,8 @@ export const Header: React.FC<HeaderProps> = ({ onToggleSidebar }) => {
                 {/* Network & Synchronization Status Indicator */}
                 <NetworkSyncIndicator />
 
-                {/* Notifications Dropdown Trigger */}
-                <div className="relative" ref={notificationRef}>
-                    <button
-                        onClick={() => setNotificationsOpen(!notificationsOpen)}
-                        className="relative p-2 text-gray-400 hover:text-white rounded-full hover:bg-gray-800/80 transition focus:outline-none"
-                    >
-                        <Bell className="h-5 w-5" />
-                        <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-indigo-500 animate-pulse" />
-                    </button>
-
-                    {/* Notifications Dropdown Box */}
-                    {notificationsOpen && (
-                        <div className="absolute right-0 mt-2 w-80 rounded-xl bg-gray-900 border border-gray-800 shadow-2xl py-2 z-50">
-                            <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800">
-                                <span className="text-sm font-semibold text-white">Notifications</span>
-                                <span className="text-xs bg-indigo-950 text-indigo-400 px-2 py-0.5 rounded-full border border-indigo-800/50">3 New</span>
-                            </div>
-                            <div className="max-h-72 overflow-y-auto divide-y divide-gray-800/50">
-                                {notifications.map((n) => (
-                                    <div key={n.id} className="p-3 hover:bg-gray-800/50 transition cursor-pointer">
-                                        <div className="flex items-start space-x-3">
-                                            <div className="mt-0.5">
-                                                {n.type === 'warning' && <ShieldAlert className="h-4 w-4 text-amber-400" />}
-                                                {n.type === 'danger' && <ShieldAlert className="h-4 w-4 text-red-400" />}
-                                                {n.type === 'success' && <CheckCircle className="h-4 w-4 text-emerald-400" />}
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-xs font-semibold text-white">{n.title}</p>
-                                                <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{n.message}</p>
-                                                <span className="text-[10px] text-gray-500 mt-1 block">{n.time}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                            <div className="px-4 py-2 border-t border-gray-800 text-center">
-                                <button className="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
-                                    Mark all as read
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                </div>
+                {/* Live Real-Time Notifications Dropdown */}
+                <NotificationDropdown />
 
                 <div className="h-6 w-px bg-gray-800" />
 

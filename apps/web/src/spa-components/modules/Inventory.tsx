@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import axios from 'axios';
 import { api } from '../../lib/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
@@ -50,6 +51,22 @@ export const InventoryPage: React.FC = () => {
     const [suppliersList, setSuppliersList] = useState<any[]>([]);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
+    // New Category on-the-fly creation state
+    const [isAddingCategory, setIsAddingCategory] = useState(false);
+    const [newCategoryNameInput, setNewCategoryNameInput] = useState('');
+    const [isSavingCategory, setIsSavingCategory] = useState(false);
+
+    // New Manufacturer on-the-fly creation state
+    const [isAddingManufacturer, setIsAddingManufacturer] = useState(false);
+    const [newManufacturerNameInput, setNewManufacturerNameInput] = useState('');
+    const [isSavingManufacturer, setIsSavingManufacturer] = useState(false);
+
+    // New Supplier on-the-fly creation state
+    const [isAddingSupplier, setIsAddingSupplier] = useState(false);
+    const [newSupplierNameInput, setNewSupplierNameInput] = useState('');
+    const [newSupplierPhoneInput, setNewSupplierPhoneInput] = useState('');
+    const [isSavingSupplier, setIsSavingSupplier] = useState(false);
+
     // Form fields state
     const [newName, setNewName] = useState('');
     const [newGenericName, setNewGenericName] = useState('');
@@ -65,25 +82,103 @@ export const InventoryPage: React.FC = () => {
     const [newMinStockLevel, setNewMinStockLevel] = useState('10');
     const [newExpiryDate, setNewExpiryDate] = useState('');
 
+    const fetchDropdowns = useCallback(async () => {
+        try {
+            const [catsRes, mfgsRes, supsRes] = await Promise.allSettled([
+                api.get('/medicines/categories/all'),
+                api.get('/medicines/manufacturers/all'),
+                api.get('/suppliers')
+            ]);
+            if (catsRes.status === 'fulfilled') {
+                setCategoriesList(catsRes.value.data?.data || []);
+            }
+            if (mfgsRes.status === 'fulfilled') {
+                setManufacturersList(mfgsRes.value.data?.data || []);
+            }
+            if (supsRes.status === 'fulfilled') {
+                setSuppliersList(supsRes.value.data?.data || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch dropdown dependencies:', error);
+        }
+    }, []);
+
     useEffect(() => {
         if (canManage) {
-            const fetchDropdowns = async () => {
-                try {
-                    const [catsRes, mfgsRes, supsRes] = await Promise.all([
-                        api.get('/medicines/categories/all'),
-                        api.get('/medicines/manufacturers/all'),
-                        api.get('/suppliers')
-                    ]);
-                    setCategoriesList(catsRes.data.data);
-                    setManufacturersList(mfgsRes.data.data);
-                    setSuppliersList(supsRes.data.data);
-                } catch (error) {
-                    console.error('Failed to fetch dropdown dependencies:', error);
-                }
-            };
             fetchDropdowns();
         }
-    }, [canManage]);
+    }, [canManage, fetchDropdowns]);
+
+    const handleAddCategory = async (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        const trimmed = newCategoryNameInput.trim();
+        if (!trimmed) return;
+        setIsSavingCategory(true);
+        try {
+            const res = await api.post('/medicines/categories', { name: trimmed });
+            const created = res.data.data;
+            setCategoriesList(prev => {
+                if (prev.some(c => c.id === created.id)) return prev;
+                return [...prev, created].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            setNewCategoryId(created.id);
+            setNewCategoryNameInput('');
+            setIsAddingCategory(false);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to create category');
+        } finally {
+            setIsSavingCategory(false);
+        }
+    };
+
+    const handleAddManufacturer = async (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        const trimmed = newManufacturerNameInput.trim();
+        if (!trimmed) return;
+        setIsSavingManufacturer(true);
+        try {
+            const res = await api.post('/medicines/manufacturers', { name: trimmed });
+            const created = res.data.data;
+            setManufacturersList(prev => {
+                if (prev.some(m => m.id === created.id)) return prev;
+                return [...prev, created].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            setNewManufacturer(created.id);
+            setNewManufacturerNameInput('');
+            setIsAddingManufacturer(false);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to create manufacturer');
+        } finally {
+            setIsSavingManufacturer(false);
+        }
+    };
+
+    const handleAddSupplier = async (e?: React.MouseEvent) => {
+        if (e) e.preventDefault();
+        const trimmed = newSupplierNameInput.trim();
+        if (!trimmed) return;
+        setIsSavingSupplier(true);
+        try {
+            const res = await api.post('/suppliers', {
+                name: trimmed,
+                phone: newSupplierPhoneInput.trim() || 'N/A',
+                paymentTerms: 'NET_30'
+            });
+            const created = res.data.data;
+            setSuppliersList(prev => {
+                if (prev.some(s => s.id === created.id)) return prev;
+                return [...prev, created].sort((a, b) => a.name.localeCompare(b.name));
+            });
+            setNewSupplierId(created.id);
+            setNewSupplierNameInput('');
+            setNewSupplierPhoneInput('');
+            setIsAddingSupplier(false);
+        } catch (err: any) {
+            alert(err.response?.data?.message || 'Failed to create supplier');
+        } finally {
+            setIsSavingSupplier(false);
+        }
+    };
 
     const handleCreateMedicine = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -131,9 +226,16 @@ export const InventoryPage: React.FC = () => {
         }
     };
 
+    const abortControllerRef = useRef<AbortController | null>(null);
+
     const fetchMedicines = useCallback(async () => {
+        // Cancel previous pending search/page request to avoid race conditions
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 10000);
+        abortControllerRef.current = controller;
+
         try {
             setLoading(true);
             setFetchError(null);
@@ -145,15 +247,23 @@ export const InventoryPage: React.FC = () => {
             setMedicines(response.data.data);
             setTotalPages(response.data.meta.totalPages);
         } catch (error: any) {
-            console.error('Failed to fetch inventory:', error);
-            if (error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
-                setFetchError('Request timed out. The server may be unreachable.');
+            // Silently ignore normal navigation/search cancellations
+            if (axios.isCancel(error) || error.name === 'CanceledError' || error.code === 'ERR_CANCELED') {
+                return;
+            }
+
+            if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+                setFetchError('Request timed out while waiting for server response. Please click Retry.');
             } else {
-                setFetchError(error.response?.data?.message || 'Failed to load inventory. Check your connection.');
+                const msg = error.response?.data?.message || '';
+                if (msg.includes('Failed query:') || msg.includes('Database connection') || error.response?.status === 500) {
+                    setFetchError('Database connection temporarily interrupted. Please ensure your internet connection is active and click Retry.');
+                } else {
+                    setFetchError(msg || 'Failed to load inventory. Check your connection.');
+                }
             }
             setMedicines([]);
         } finally {
-            clearTimeout(timeoutId);
             setLoading(false);
         }
     }, [debouncedSearch, filter, page]);
@@ -166,6 +276,11 @@ export const InventoryPage: React.FC = () => {
 
     useEffect(() => {
         fetchMedicines();
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
     }, [fetchMedicines]);
 
     return (
@@ -222,7 +337,7 @@ export const InventoryPage: React.FC = () => {
                                 <th className="py-3 px-4">Medicine Details</th>
                                 <th className="py-3 px-4">Category</th>
                                 <th className="py-3 px-4">Batch & Barcode</th>
-                                <th className="py-3 px-4">Pricing</th>
+                                <th className="py-3 px-4">Pricing (Birr)</th>
                                 <th className="py-3 px-4">Stock Status</th>
                                 {canManage && <th className="py-3 px-4 text-right">Actions</th>}
                             </tr>
@@ -270,8 +385,8 @@ export const InventoryPage: React.FC = () => {
                                                 </button>
                                             </td>
                                             <td className="py-3 px-4">
-                                                <div className="font-medium text-gray-900">ETB {med.sellingPrice}</div>
-                                                <div className="text-xs text-gray-400">Cost: ETB {med.unitPrice}</div>
+                                                <div className="font-medium text-gray-900">Birr {med.sellingPrice}</div>
+                                                <div className="text-xs text-gray-400">Cost: Birr {med.unitPrice}</div>
                                             </td>
                                             <td className="py-3 px-4">
                                                 <div className="flex items-center gap-2">
@@ -373,7 +488,7 @@ export const InventoryPage: React.FC = () => {
                                         value={newName}
                                         onChange={e => setNewName(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. Amoxicillin 500mg"
+                                        placeholder="Commercial medicine name..."
                                     />
                                 </div>
                                 <div>
@@ -384,7 +499,7 @@ export const InventoryPage: React.FC = () => {
                                         value={newGenericName}
                                         onChange={e => setNewGenericName(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. Amoxicillin Trihydrate"
+                                        placeholder="Active generic ingredient..."
                                     />
                                 </div>
                             </div>
@@ -397,7 +512,7 @@ export const InventoryPage: React.FC = () => {
                                         value={newBrandName}
                                         onChange={e => setNewBrandName(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. Pfizer"
+                                        placeholder="Brand / manufacturer name..."
                                     />
                                 </div>
                                 <div>
@@ -407,7 +522,7 @@ export const InventoryPage: React.FC = () => {
                                         value={newBarcode}
                                         onChange={e => setNewBarcode(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. 6291072200122"
+                                        placeholder="Scan or enter barcode..."
                                     />
                                 </div>
                             </div>
@@ -421,7 +536,7 @@ export const InventoryPage: React.FC = () => {
                                         value={newBatchNumber}
                                         onChange={e => setNewBatchNumber(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. B-9942"
+                                        placeholder="Batch / lot number..."
                                     />
                                 </div>
                                 <div>
@@ -438,52 +553,203 @@ export const InventoryPage: React.FC = () => {
 
                             <div className="grid grid-cols-3 gap-3">
                                 <div>
-                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Category *</label>
-                                    <select
-                                        required
-                                        value={newCategoryId}
-                                        onChange={e => setNewCategoryId(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Select Category</option>
-                                        {categoriesList.map(cat => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block font-medium text-gray-700 font-semibold text-xs">Category *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsAddingCategory(!isAddingCategory);
+                                                setNewCategoryNameInput('');
+                                            }}
+                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5"
+                                        >
+                                            <Plus className="w-3 h-3" /> {isAddingCategory ? 'Cancel' : 'New'}
+                                        </button>
+                                    </div>
+
+                                    {isAddingCategory ? (
+                                        <div className="flex gap-1">
+                                            <input
+                                                type="text"
+                                                value={newCategoryNameInput}
+                                                onChange={e => setNewCategoryNameInput(e.target.value)}
+                                                placeholder="New category..."
+                                                className="w-full border border-indigo-400 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:outline-none"
+                                                autoFocus
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleAddCategory();
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                disabled={isSavingCategory || !newCategoryNameInput.trim()}
+                                                onClick={() => handleAddCategory()}
+                                                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 whitespace-nowrap"
+                                            >
+                                                {isSavingCategory ? '...' : 'Add'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            required
+                                            value={newCategoryId}
+                                            onChange={e => {
+                                                if (e.target.value === '__NEW__') {
+                                                    setIsAddingCategory(true);
+                                                } else {
+                                                    setNewCategoryId(e.target.value);
+                                                }
+                                            }}
+                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="">Select Category</option>
+                                            {categoriesList.map(cat => (
+                                                <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                            <option value="__NEW__" className="text-indigo-600 font-semibold">+ Add New Category...</option>
+                                        </select>
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Manufacturer *</label>
-                                    <select
-                                        required
-                                        value={newManufacturer}
-                                        onChange={e => setNewManufacturer(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Select Manufacturer</option>
-                                        {manufacturersList.map(mfg => (
-                                            <option key={mfg.id} value={mfg.id}>{mfg.name} ({mfg.country})</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block font-medium text-gray-700 font-semibold text-xs">Manufacturer *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsAddingManufacturer(!isAddingManufacturer);
+                                                setNewManufacturerNameInput('');
+                                            }}
+                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5"
+                                        >
+                                            <Plus className="w-3 h-3" /> {isAddingManufacturer ? 'Cancel' : 'New'}
+                                        </button>
+                                    </div>
+
+                                    {isAddingManufacturer ? (
+                                        <div className="flex gap-1">
+                                            <input
+                                                type="text"
+                                                value={newManufacturerNameInput}
+                                                onChange={e => setNewManufacturerNameInput(e.target.value)}
+                                                placeholder="New manufacturer..."
+                                                className="w-full border border-indigo-400 rounded-lg px-2.5 py-1.5 text-xs text-gray-900 bg-white focus:outline-none"
+                                                autoFocus
+                                                onKeyDown={e => {
+                                                    if (e.key === 'Enter') {
+                                                        e.preventDefault();
+                                                        handleAddManufacturer();
+                                                    }
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                disabled={isSavingManufacturer || !newManufacturerNameInput.trim()}
+                                                onClick={() => handleAddManufacturer()}
+                                                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 whitespace-nowrap"
+                                            >
+                                                {isSavingManufacturer ? '...' : 'Add'}
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            required
+                                            value={newManufacturer}
+                                            onChange={e => {
+                                                if (e.target.value === '__NEW__') {
+                                                    setIsAddingManufacturer(true);
+                                                } else {
+                                                    setNewManufacturer(e.target.value);
+                                                }
+                                            }}
+                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="">Select Manufacturer</option>
+                                            {manufacturersList.map(mfg => (
+                                                <option key={mfg.id} value={mfg.id}>{mfg.name}{mfg.country ? ` (${mfg.country})` : ''}</option>
+                                            ))}
+                                            <option value="__NEW__" className="text-indigo-600 font-semibold">+ Add New Manufacturer...</option>
+                                        </select>
+                                    )}
                                 </div>
                                 <div>
-                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Supplier *</label>
-                                    <select
-                                        required
-                                        value={newSupplierId}
-                                        onChange={e => setNewSupplierId(e.target.value)}
-                                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                    >
-                                        <option value="">Select Supplier</option>
-                                        {suppliersList.map(sup => (
-                                            <option key={sup.id} value={sup.id}>{sup.name}</option>
-                                        ))}
-                                    </select>
+                                    <div className="flex items-center justify-between mb-1">
+                                        <label className="block font-medium text-gray-700 font-semibold text-xs">Supplier *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                setIsAddingSupplier(!isAddingSupplier);
+                                                setNewSupplierNameInput('');
+                                                setNewSupplierPhoneInput('');
+                                            }}
+                                            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium inline-flex items-center gap-0.5"
+                                        >
+                                            <Plus className="w-3 h-3" /> {isAddingSupplier ? 'Cancel' : 'New'}
+                                        </button>
+                                    </div>
+
+                                    {isAddingSupplier ? (
+                                        <div className="space-y-1">
+                                            <input
+                                                type="text"
+                                                value={newSupplierNameInput}
+                                                onChange={e => setNewSupplierNameInput(e.target.value)}
+                                                placeholder="Supplier company name..."
+                                                className="w-full border border-indigo-400 rounded-lg px-2.5 py-1 text-xs text-gray-900 bg-white focus:outline-none"
+                                                autoFocus
+                                            />
+                                            <div className="flex gap-1">
+                                                <input
+                                                    type="text"
+                                                    value={newSupplierPhoneInput}
+                                                    onChange={e => setNewSupplierPhoneInput(e.target.value)}
+                                                    placeholder="Phone number..."
+                                                    className="w-full border border-gray-300 rounded-lg px-2.5 py-1 text-xs text-gray-900 bg-white focus:outline-none"
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            handleAddSupplier();
+                                                        }
+                                                    }}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    disabled={isSavingSupplier || !newSupplierNameInput.trim()}
+                                                    onClick={() => handleAddSupplier()}
+                                                    className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-semibold disabled:opacity-50 whitespace-nowrap"
+                                                >
+                                                    {isSavingSupplier ? '...' : 'Add'}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <select
+                                            required
+                                            value={newSupplierId}
+                                            onChange={e => {
+                                                if (e.target.value === '__NEW__') {
+                                                    setIsAddingSupplier(true);
+                                                } else {
+                                                    setNewSupplierId(e.target.value);
+                                                }
+                                            }}
+                                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        >
+                                            <option value="">Select Supplier</option>
+                                            {suppliersList.map(sup => (
+                                                <option key={sup.id} value={sup.id}>{sup.name}</option>
+                                            ))}
+                                            <option value="__NEW__" className="text-indigo-600 font-semibold">+ Add New Supplier...</option>
+                                        </select>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
                                 <div>
-                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Purchase Price (Cost) *</label>
+                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Purchase Price (Cost in Birr) *</label>
                                     <input
                                         type="number"
                                         required
@@ -492,11 +758,11 @@ export const InventoryPage: React.FC = () => {
                                         value={newUnitPrice}
                                         onChange={e => setNewUnitPrice(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. 5.50"
+                                        placeholder="e.g. 55.00"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Selling Price *</label>
+                                    <label className="block font-medium text-gray-700 mb-1 font-semibold">Selling Price (in Birr) *</label>
                                     <input
                                         type="number"
                                         required
@@ -505,7 +771,7 @@ export const InventoryPage: React.FC = () => {
                                         value={newSellingPrice}
                                         onChange={e => setNewSellingPrice(e.target.value)}
                                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 bg-gray-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. 8.00"
+                                        placeholder="e.g. 80.00"
                                     />
                                 </div>
                             </div>

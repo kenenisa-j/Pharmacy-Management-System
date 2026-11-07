@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
     getAnalyticsDashboard,
+    getSalesPeriodReport,
     exportSalesCSV,
     exportInventoryExcel,
     exportSalesPDF,
@@ -10,8 +11,9 @@ import { PERMISSIONS } from '../config/roles.js';
 
 const router = Router();
 
-// Analytics — Owner + Pharmacist (VIEW_REPORTS)
+// Analytics & Periodic Sales Reports — Owner + Pharmacist (VIEW_REPORTS)
 router.get('/analytics', authenticateToken, requirePermission(PERMISSIONS.VIEW_REPORTS), getAnalyticsDashboard);
+router.get('/sales-period', authenticateToken, requirePermission(PERMISSIONS.VIEW_REPORTS), getSalesPeriodReport);
 
 // Exports — Owner-only sensitive financial exports (MANAGE_SETTINGS covers owner)
 // Inventory export available to Pharmacist too (VIEW_REPORTS)

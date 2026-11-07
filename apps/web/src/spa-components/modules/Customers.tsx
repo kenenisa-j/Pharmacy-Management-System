@@ -10,7 +10,7 @@ import {
     Mail,
     MapPin,
     FileText,
-    DollarSign,
+    Wallet,
     Plus,
     X,
     ChevronRight,
@@ -512,7 +512,7 @@ export const CustomersPage: React.FC = () => {
                                     </div>
                                     <div className="text-right flex items-center gap-2">
                                         <div>
-                                            <p className="text-xs font-bold text-indigo-600">ETB {Number(c.outstandingBalance || 0).toFixed(2)}</p>
+                                            <p className="text-xs font-bold text-indigo-600">Birr {Number(c.outstandingBalance || 0).toFixed(2)}</p>
                                             <span className="text-[10px] text-gray-400">Balance</span>
                                         </div>
                                         <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -564,10 +564,10 @@ export const CustomersPage: React.FC = () => {
                                 </div>
 
                                 <div className="flex items-center gap-3 bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100">
-                                    <DollarSign className="w-6 h-6 text-indigo-600" />
+                                    <Wallet className="w-6 h-6 text-indigo-600" />
                                     <div>
                                         <span className="text-[10px] uppercase font-bold text-indigo-500 block">Credit Balance</span>
-                                        <span className="text-base font-extrabold text-indigo-900">ETB {Number(selectedCustomer.outstandingBalance || 0).toFixed(2)}</span>
+                                        <span className="text-base font-extrabold text-indigo-900">Birr {Number(selectedCustomer.outstandingBalance || 0).toFixed(2)}</span>
                                     </div>
                                 </div>
                             </div>
@@ -725,7 +725,7 @@ export const CustomersPage: React.FC = () => {
                                                         <span className="font-bold text-gray-900">Receipt #{sale.receiptNumber}</span>
                                                         <p className="text-gray-500 mt-0.5">{new Date(sale.createdAt).toLocaleString()} • {sale.paymentMethod}</p>
                                                     </div>
-                                                    <span className="font-extrabold text-indigo-600">ETB {Number(sale.totalAmount).toFixed(2)}</span>
+                                                    <span className="font-extrabold text-indigo-600">Birr {Number(sale.totalAmount).toFixed(2)}</span>
                                                 </div>
                                             ))
                                         )}
@@ -952,7 +952,7 @@ export const CustomersPage: React.FC = () => {
                                     onChange={e => setPrescriptionNotes(e.target.value)}
                                     rows={2}
                                     className="w-full border rounded-xl px-3 py-2 bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-indigo-500 text-gray-900"
-                                    placeholder="Amoxicillin 500mg 3x daily for 7 days"
+                                    placeholder="Enter prescribed medicines, strength, and dosage instructions..."
                                 />
                             </div>
                         </div>

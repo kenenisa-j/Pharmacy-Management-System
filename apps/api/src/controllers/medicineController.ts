@@ -346,6 +346,39 @@ export const getAllCategories = async (req: Request, res: Response, next: NextFu
     }
 };
 
+// Create a new category
+export const createCategory = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { name, description } = req.body;
+        if (!name || !name.trim()) {
+            return next(new AppError('Category name is required', StatusCodes.BAD_REQUEST));
+        }
+
+        const trimmed = name.trim();
+        const existing = await db.select().from(categories).where(eq(categories.name, trimmed)).limit(1);
+        if (existing.length > 0) {
+            return res.status(StatusCodes.OK).json({
+                status: 'success',
+                message: 'Category already exists',
+                data: existing[0],
+            });
+        }
+
+        const [newCat] = await db.insert(categories).values({
+            name: trimmed,
+            description: description || null,
+        }).returning();
+
+        res.status(StatusCodes.CREATED).json({
+            status: 'success',
+            message: 'Category created successfully',
+            data: newCat,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // Get all manufacturers for dropdown selection
 export const getAllManufacturers = async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -353,6 +386,40 @@ export const getAllManufacturers = async (req: Request, res: Response, next: Nex
         res.status(StatusCodes.OK).json({
             status: 'success',
             data: results,
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// Create a new manufacturer
+export const createManufacturer = async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { name, country, contactEmail } = req.body;
+        if (!name || !name.trim()) {
+            return next(new AppError('Manufacturer name is required', StatusCodes.BAD_REQUEST));
+        }
+
+        const trimmed = name.trim();
+        const existing = await db.select().from(manufacturers).where(eq(manufacturers.name, trimmed)).limit(1);
+        if (existing.length > 0) {
+            return res.status(StatusCodes.OK).json({
+                status: 'success',
+                message: 'Manufacturer already exists',
+                data: existing[0],
+            });
+        }
+
+        const [newMfg] = await db.insert(manufacturers).values({
+            name: trimmed,
+            country: country ? country.trim() : null,
+            contactEmail: contactEmail ? contactEmail.trim() : null,
+        }).returning();
+
+        res.status(StatusCodes.CREATED).json({
+            status: 'success',
+            message: 'Manufacturer created successfully',
+            data: newMfg,
         });
     } catch (error) {
         next(error);

@@ -38,26 +38,37 @@ export const getDashboardAnalytics = async (req: Request, res: Response, next: N
             .where(lte(inventory.stockQuantity, medicines.minStockLevel))
             .limit(5);
 
-        // 3. Category Distribution (Count of medicines per category)
+        // 3. Category Distribution (Count of medicines per category, sorted by active inventory)
         const categoryDistribution = await db
             .select({
                 categoryName: categories.name,
                 count: count(medicines.id),
+                totalStock: sql<number>`COALESCE(SUM(${inventory.stockQuantity}), 0)`,
             })
             .from(categories)
             .leftJoin(medicines, eq(categories.id, medicines.categoryId))
-            .groupBy(categories.name);
+            .leftJoin(inventory, eq(medicines.id, inventory.medicineId))
+            .groupBy(categories.name)
+            .orderBy(desc(count(medicines.id)), desc(sql`COALESCE(SUM(${inventory.stockQuantity}), 0)`));
 
-        // 4. Revenue Trends (Recent sales grouped by date in local Ethiopia timezone)
-        const revenueTrends = await db
+        // 4. Revenue Trends (Most recent sales grouped by date in local Ethiopia timezone)
+        const period = (req.query.period as string) || '7d';
+        let limitDays = 7;
+        if (period === '30d') limitDays = 30;
+        else if (period === '90d') limitDays = 90;
+
+        const recentRevenueTrends = await db
             .select({
-                date: sql<string>`DATE(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa')`,
+                date: sql<string>`TO_CHAR(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa', 'YYYY-MM-DD')`,
                 revenue: sum(sales.totalAmount),
             })
             .from(sales)
-            .groupBy(sql`DATE(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa')`)
-            .orderBy(sql`DATE(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa')`)
-            .limit(7);
+            .groupBy(sql`TO_CHAR(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa', 'YYYY-MM-DD')`)
+            .orderBy(desc(sql`TO_CHAR(${sales.createdAt} AT TIME ZONE 'UTC' AT TIME ZONE 'Africa/Addis_Ababa', 'YYYY-MM-DD')`))
+            .limit(limitDays);
+
+        // Reverse to ensure chronological order from left to right on the chart
+        const revenueTrends = recentRevenueTrends.reverse();
 
         // 5. Recent Sales & Notifications
         const recentSales = await db

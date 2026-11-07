@@ -114,13 +114,18 @@ export const createSupplier = async (req: Request, res: Response, next: NextFunc
 export const updateSupplier = async (req: Request, res: Response, next: NextFunction) => {
     try {
         const id = req.params.id as string;
-        const updates = req.body;
+        const { name, contactPerson, email, phone, address } = req.body;
 
-        updates.updatedAt = new Date();
+        const updateData: any = {};
+        if (name !== undefined) updateData.name = name;
+        if (contactPerson !== undefined) updateData.contactPerson = contactPerson;
+        if (email !== undefined) updateData.email = email;
+        if (phone !== undefined) updateData.phone = phone;
+        if (address !== undefined) updateData.address = address;
 
         const [updatedSupplier] = await db
             .update(suppliers)
-            .set(updates)
+            .set(updateData)
             .where(eq(suppliers.id, id))
             .returning();
 

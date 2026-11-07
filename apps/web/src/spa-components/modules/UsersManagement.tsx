@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../lib/api';
-import { 
-    UserPlus, 
-    UserMinus, 
-    Shield, 
-    Check, 
-    X, 
-    Phone, 
-    Mail,
+import {
+    UserPlus,
+    UserMinus,
+    X, Mail,
+    Phone,
     Calendar,
     ToggleLeft,
     ToggleRight,
     Search,
-    UserCheck,
-    AlertCircle
-} from 'lucide-react';
+    UserCheck} from 'lucide-react';
 
 interface Employee {
     id: string;
@@ -39,7 +34,7 @@ export const UsersManagementPage: React.FC = () => {
     const [usersList, setUsersList] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    
+
     // Form fields
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -96,7 +91,7 @@ export const UsersManagementPage: React.FC = () => {
 
             setSuccess('Staff user registered successfully!');
             setIsCreateOpen(false);
-            
+
             // Clear fields
             setEmail('');
             setPassword('');
@@ -104,7 +99,7 @@ export const UsersManagementPage: React.FC = () => {
             setLastName('');
             setPhone('');
             setRoleName('CASHIER');
-            
+
             fetchUsers();
         } catch (err: any) {
             setError(err.response?.data?.message || 'Failed to register new staff user');
@@ -119,7 +114,7 @@ export const UsersManagementPage: React.FC = () => {
         try {
             const targetStatus = !user.isActive;
             await api.put(`/auth/users/${user.id}/status`, { isActive: targetStatus });
-            
+
             setSuccess(`User accounts successfully ${targetStatus ? 'activated' : 'deactivated'}`);
             fetchUsers();
         } catch (err: any) {

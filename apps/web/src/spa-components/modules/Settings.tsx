@@ -128,7 +128,7 @@ export const SettingsPage: React.FC = () => {
                                 onChange={e => setCurrency(e.target.value)}
                                 className={inputClass}
                             >
-                                <option value="ETB">ETB — Ethiopian Birr (Br)</option>
+                                <option value="ETB">Birr (ETB) — Ethiopian Birr</option>
                                 <option value="USD">USD — US Dollar ($)</option>
                                 <option value="EUR">EUR — Euro (€)</option>
                                 <option value="GBP">GBP — British Pound (£)</option>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, ShoppingBag, Pill, AlertTriangle } from 'lucide-react';
+import { TrendingUp, ShoppingBag, Pill, AlertTriangle, RotateCw } from 'lucide-react';
 import { api } from '../../lib/api';
 import {
     ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -29,11 +29,10 @@ interface DashboardData {
 
 /* ── tiny helpers ─────────────────────────────────────────────────────────── */
 const fmt = (n: number) =>
-    n >= 1_000_000
-        ? `${(n / 1_000_000).toFixed(1)}M`
-        : n >= 1_000
-        ? `${(n / 1_000).toFixed(1)}K`
-        : n.toFixed(2);
+    Number(n || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
 
 const initials = (email: string) =>
     email ? email.slice(0, 2).toUpperCase() : '??';
@@ -60,7 +59,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         }}>
             <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 11, marginBottom: 4 }}>{label}</p>
             <p style={{ color: '#34d399', fontWeight: 700, fontSize: 14 }}>
-                ETB {Number(payload[0].value).toFixed(2)}
+                Birr {Number(payload[0].value).toFixed(2)}
             </p>
         </div>
     );
@@ -71,31 +70,60 @@ export const Dashboard: React.FC = () => {
     const { user } = useAuthStore();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('7d');
     const [error, setError] = useState('');
 
+    const fetch$ = async (selectedPeriod = period) => {
+        setIsRefreshing(true);
+        setError('');
+        try {
+            const res = await api.get('/analytics/dashboard', {
+                params: { period: selectedPeriod }
+            });
+            setData(res.data.data);
+        } catch (e: any) {
+            if (e.code === 'ECONNABORTED' || !e.response) {
+                setError('Network connection was interrupted. Please check your network and retry.');
+            } else {
+                setError(e.response?.data?.message || 'Failed to load dashboard.');
+            }
+        } finally {
+            setLoading(false);
+            setIsRefreshing(false);
+        }
+    };
+
+    const handlePeriodChange = (newPeriod: '7d' | '30d' | '90d') => {
+        setPeriod(newPeriod);
+        fetch$(newPeriod);
+    };
+
     useEffect(() => {
-        if (user && (user.role === 'PHARMACIST' || user.role === 'CASHIER')) {
+        if (!user) {
             setLoading(false);
             return;
         }
-        const fetch$ = async () => {
-            try {
-                const res = await api.get('/analytics/dashboard');
-                setData(res.data.data);
-            } catch (e: any) {
-                setError(e.response?.data?.message || 'Failed to load dashboard.');
-            } finally {
-                setLoading(false);
-            }
-        };
+        if (user.role === 'PHARMACIST' || user.role === 'CASHIER') {
+            setLoading(false);
+            return;
+        }
         fetch$();
     }, [user]);
 
     /* ── role gates ─────────────────────────────────────────────────────── */
     if (loading) {
         return (
-            <div style={{ display: 'flex', height: 240, alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,.4)', fontSize: 14 }}>
-                Loading dashboard…
+            <div style={{ display: 'flex', flexDirection: 'column', height: 280, alignItems: 'center', justifyContent: 'center', gap: 12, color: 'rgba(255,255,255,.6)', fontSize: 14 }}>
+                <div style={{
+                    width: 32,
+                    height: 32,
+                    border: '3px solid rgba(255,255,255,0.1)',
+                    borderTopColor: '#6366f1',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite',
+                }} />
+                <span>Loading dashboard data...</span>
             </div>
         );
     }
@@ -129,8 +157,52 @@ export const Dashboard: React.FC = () => {
 
     if (error) {
         return (
-            <div style={{ background: 'rgba(239,68,68,.10)', border: '1px solid rgba(239,68,68,.25)', borderRadius: 12, padding: '14px 18px', color: '#fca5a5', fontSize: 14 }}>
-                {error}
+            <div style={{
+                background: 'rgba(239,68,68,.08)',
+                border: '1px solid rgba(239,68,68,.25)',
+                borderRadius: 14,
+                padding: '28px 24px',
+                color: '#fca5a5',
+                fontSize: 14,
+                maxWidth: 480,
+                margin: '40px auto',
+                textAlign: 'center',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 12
+            }}>
+                <div style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: '50%',
+                    background: 'rgba(239,68,68,.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#ef4444'
+                }}>
+                    <AlertTriangle size={24} />
+                </div>
+                <div style={{ fontWeight: 600, color: '#fff', fontSize: 16 }}>Unable to Load Dashboard</div>
+                <div style={{ color: '#9ca3af', fontSize: 13, lineHeight: 1.5 }}>{error}</div>
+                <button
+                    onClick={() => fetch$()}
+                    style={{
+                        marginTop: 6,
+                        padding: '10px 22px',
+                        borderRadius: 10,
+                        background: '#4f46e5',
+                        color: '#fff',
+                        fontWeight: 600,
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: 13,
+                        transition: 'background 0.2s',
+                    }}
+                >
+                    Retry Connection
+                </button>
             </div>
         );
     }
@@ -169,14 +241,38 @@ export const Dashboard: React.FC = () => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
-            {/* ── greeting ─────────────────────────────────────────────── */}
-            <div>
-                <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-.4px' }}>
-                    {greeting()}, {name} 👋
-                </h1>
-                <p style={{ color: 'rgba(255,255,255,.38)', fontSize: 13, marginTop: 4 }}>
-                    Here's what's happening at your pharmacy today.
-                </p>
+            {/* ── greeting + refresh ─────────────────────────────────── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                    <h1 style={{ color: '#fff', fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: '-.4px' }}>
+                        {greeting()}, {name} 👋
+                    </h1>
+                    <p style={{ color: 'rgba(255,255,255,.38)', fontSize: 13, marginTop: 4 }}>
+                        Here's what's happening at your pharmacy today.
+                    </p>
+                </div>
+                <button
+                    onClick={() => fetch$()}
+                    disabled={isRefreshing}
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 7,
+                        padding: '8px 16px',
+                        background: 'rgba(255,255,255,0.06)',
+                        border: '1px solid rgba(255,255,255,0.12)',
+                        borderRadius: 12,
+                        color: '#fff',
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: isRefreshing ? 'wait' : 'pointer',
+                        transition: 'all 0.2s',
+                    }}
+                    title="Refresh Dashboard metrics"
+                >
+                    <RotateCw size={13} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
+                    {isRefreshing ? 'Syncing...' : 'Refresh'}
+                </button>
             </div>
 
             {/* ── primary row: big revenue card + 3 small cards ────────── */}
@@ -194,17 +290,20 @@ export const Dashboard: React.FC = () => {
                         <p style={{ color: 'rgba(255,255,255,.45)', fontSize: 12, fontWeight: 500, textTransform: 'uppercase', letterSpacing: '.6px', margin: 0 }}>
                             Total Revenue
                         </p>
-                        <p style={{ color: '#fff', fontSize: 38, fontWeight: 800, letterSpacing: '-1px', margin: '8px 0 0', lineHeight: 1 }}>
-                            ETB {fmt(m.totalRevenue)}
+                        <p style={{ color: '#fff', fontSize: 36, fontWeight: 800, letterSpacing: '-1px', margin: '8px 0 0', lineHeight: 1 }}>
+                            Birr {fmt(m.totalRevenue)}
                         </p>
                     </div>
-                    <div style={{ display: 'flex', gap: 20, marginTop: 18 }}>
-                        {data?.categoryDistribution?.slice(0, 2).map(c => (
-                            <div key={c.name}>
-                                <p style={{ color: 'rgba(255,255,255,.32)', fontSize: 11, margin: '0 0 2px' }}>{c.name}</p>
-                                <p style={{ color: '#fff', fontWeight: 600, fontSize: 14, margin: 0 }}>{c.value} units</p>
-                            </div>
-                        ))}
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, marginTop: 18 }}>
+                        {data?.categoryDistribution
+                            ?.filter(c => c.value > 0)
+                            ?.slice(0, 3)
+                            ?.map(c => (
+                                <div key={c.name}>
+                                    <p style={{ color: 'rgba(255,255,255,.4)', fontSize: 11, margin: '0 0 2px' }}>{c.name}</p>
+                                    <p style={{ color: '#fff', fontWeight: 600, fontSize: 13, margin: 0 }}>{c.value} {c.value === 1 ? 'item' : 'items'}</p>
+                                </div>
+                            ))}
                     </div>
                 </div>
 
@@ -234,6 +333,58 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
+            {/* ── quick link to periodic breakdown ───────────────────────── */}
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(79,70,229,0.06))',
+                border: '1px solid rgba(99,102,241,0.25)',
+                borderRadius: 14,
+                padding: '14px 20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{
+                        width: 38,
+                        height: 38,
+                        borderRadius: 10,
+                        background: 'rgba(99,102,241,0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#818cf8',
+                    }}>
+                        <ShoppingBag size={18} />
+                    </div>
+                    <div>
+                        <p style={{ color: '#fff', fontSize: 13, fontWeight: 600, margin: 0 }}>
+                            Daily & Periodic Sales Breakdown
+                        </p>
+                        <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, margin: '2px 0 0' }}>
+                            Inspect what was sold today, this week, or this month, exact quantities, total Birr, and sold-out medicines.
+                        </p>
+                    </div>
+                </div>
+                <Link
+                    to="/reports"
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        padding: '8px 16px',
+                        background: '#4f46e5',
+                        color: '#fff',
+                        borderRadius: 10,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        textDecoration: 'none',
+                        boxShadow: '0 4px 12px rgba(79,70,229,0.3)',
+                    }}
+                >
+                    View Detailed Breakdown →
+                </Link>
+            </div>
+
             {/* ── revenue chart ─────────────────────────────────────────── */}
             <div style={{
                 background: 'rgba(255,255,255,0.04)',
@@ -246,14 +397,22 @@ export const Dashboard: React.FC = () => {
                         <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Revenue Trend</span>
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                        {['7d', '30d', '90d'].map((t, i) => (
-                            <span key={t} style={{
-                                fontSize: 11, padding: '3px 10px', borderRadius: 99,
-                                background: i === 0 ? 'rgba(52,211,153,.15)' : 'transparent',
-                                color: i === 0 ? '#34d399' : 'rgba(255,255,255,.3)',
-                                border: i === 0 ? '1px solid rgba(52,211,153,.3)' : '1px solid transparent',
-                                cursor: 'pointer', fontWeight: 500,
-                            }}>{t}</span>
+                        {(['7d', '30d', '90d'] as const).map(t => (
+                            <button
+                                key={t}
+                                type="button"
+                                onClick={() => handlePeriodChange(t)}
+                                style={{
+                                    fontSize: 11, padding: '3px 10px', borderRadius: 99,
+                                    background: period === t ? 'rgba(52,211,153,.15)' : 'transparent',
+                                    color: period === t ? '#34d399' : 'rgba(255,255,255,.3)',
+                                    border: period === t ? '1px solid rgba(52,211,153,.3)' : '1px solid transparent',
+                                    cursor: 'pointer', fontWeight: 500,
+                                    transition: 'all 0.2s',
+                                }}
+                            >
+                                {t}
+                            </button>
                         ))}
                     </div>
                 </div>
@@ -316,7 +475,7 @@ export const Dashboard: React.FC = () => {
                                 <span style={{ color: '#fff', fontSize: 13, fontWeight: 500 }}>{s.invoiceNumber}</span>
                                 <span style={{ color: 'rgba(255,255,255,.4)', fontSize: 12 }}>{shortDate(s.createdAt)}</span>
                                 <span style={{ color: '#34d399', fontSize: 13, fontWeight: 600 }}>
-                                    ETB {Number(s.totalAmount).toFixed(2)}
+                                    Birr {Number(s.totalAmount).toFixed(2)}
                                 </span>
                                 <span style={{
                                     display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600,

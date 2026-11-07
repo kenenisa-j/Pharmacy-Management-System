@@ -114,19 +114,34 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
     err.statusCode = err.statusCode || StatusCodes.INTERNAL_SERVER_ERROR;
     err.status = err.status || 'error';
 
+    // Catch database connection / DNS resolution drops
+    const isDbConnectionError = 
+        err.cause?.code === 'ENOTFOUND' ||
+        err.code === 'ENOTFOUND' ||
+        err.cause?.code === 'ETIMEDOUT' ||
+        err.cause?.code === 'ECONNREFUSED' ||
+        err.message?.includes('getaddrinfo ENOTFOUND');
+
+    const sanitizedMessage = isDbConnectionError
+        ? 'Database connection temporarily interrupted. Please verify your internet connection and retry.'
+        : err.message?.startsWith('Failed query:')
+        ? 'Database query execution failed. Please retry.'
+        : err.message || 'An unexpected error occurred.';
+
     if (env.nodeEnv === 'development') {
         console.error('❌ ERROR Details:', err);
         res.status(err.statusCode).json({
             status: err.status,
             error: err,
-            message: err.message,
+            message: sanitizedMessage,
+            rawMessage: err.message,
             stack: err.stack,
         });
     } else {
         // Production response (don't leak stack traces)
         res.status(err.statusCode).json({
             status: err.status,
-            message: err.isOperational ? err.message : 'Something went very wrong!',
+            message: err.isOperational ? err.message : sanitizedMessage,
         });
     }
 });

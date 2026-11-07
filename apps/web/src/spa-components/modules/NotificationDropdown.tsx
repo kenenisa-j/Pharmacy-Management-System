@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../../lib/api';
-import { Bell, CheckCheck, AlertTriangle, Package, CheckCircle2, DollarSign } from 'lucide-react';
+import { Bell, CheckCheck, AlertTriangle, Package, CheckCircle2, Banknote } from 'lucide-react';
 
 interface Notification {
     id: string;
@@ -62,12 +62,53 @@ export const NotificationDropdown: React.FC = () => {
 
     const unreadCount = notifications.filter(n => n.isRead === 0).length;
 
+    const formatNotificationDate = (dateString: string) => {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return '';
+
+        const now = new Date();
+        const isToday =
+            date.getDate() === now.getDate() &&
+            date.getMonth() === now.getMonth() &&
+            date.getFullYear() === now.getFullYear();
+
+        const yesterday = new Date(now);
+        yesterday.setDate(now.getDate() - 1);
+        const isYesterday =
+            date.getDate() === yesterday.getDate() &&
+            date.getMonth() === yesterday.getMonth() &&
+            date.getFullYear() === yesterday.getFullYear();
+
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        if (isToday) {
+            return `Today • ${timeStr}`;
+        }
+        if (isYesterday) {
+            return `Yesterday • ${timeStr}`;
+        }
+
+        const isThisYear = date.getFullYear() === now.getFullYear();
+        const dateStr = date.toLocaleDateString([], {
+            month: 'short',
+            day: 'numeric',
+            year: isThisYear ? undefined : 'numeric',
+        });
+
+        return `${dateStr} • ${timeStr}`;
+    };
+
+    const cleanNotificationMessage = (msg: string) => {
+        if (!msg) return '';
+        return msg.replace(/\$([0-9]+(?:\.[0-9]+)?)/g, 'Birr $1').replace(/\$/g, 'Birr ');
+    };
+
     const getIcon = (type: string) => {
         switch (type) {
             case 'LOW_STOCK': return <AlertTriangle className="w-4 h-4 text-amber-500" />;
             case 'EXPIRY': return <Package className="w-4 h-4 text-red-500" />;
             case 'PURCHASE': return <CheckCircle2 className="w-4 h-4 text-indigo-500" />;
-            case 'PAYMENT': return <DollarSign className="w-4 h-4 text-emerald-500" />;
+            case 'PAYMENT': return <Banknote className="w-4 h-4 text-emerald-500" />;
             default: return <Bell className="w-4 h-4 text-gray-500" />;
         }
     };
@@ -123,9 +164,13 @@ export const NotificationDropdown: React.FC = () => {
                                     <div className="flex-1 min-w-0">
                                         <div className="flex justify-between items-start">
                                             <h4 className="font-bold text-gray-900 text-xs truncate">{n.title}</h4>
-                                            <span className="text-[10px] text-gray-400 shrink-0 ml-2">{new Date(n.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                            <span className="text-[10px] text-gray-400 shrink-0 ml-2 font-medium whitespace-nowrap">
+                                                {formatNotificationDate(n.createdAt)}
+                                            </span>
                                         </div>
-                                        <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">{n.message}</p>
+                                        <p className="text-xs text-gray-600 mt-0.5 leading-relaxed">
+                                            {cleanNotificationMessage(n.message)}
+                                        </p>
                                     </div>
                                 </div>
                             ))

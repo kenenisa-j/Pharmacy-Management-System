@@ -27,10 +27,18 @@ export const getAllNotifications = async (req: Request, res: Response, next: Nex
             .orderBy(desc(notifications.createdAt))
             .limit(50);
 
+        // Sanitize dollar signs into Birr for all notifications
+        const sanitized = results.map(n => ({
+            ...n,
+            message: n.message
+                ? n.message.replace(/\$([0-9]+(?:\.[0-9]+)?)/g, 'Birr $1').replace(/\$/g, 'Birr ')
+                : n.message,
+        }));
+
         res.status(StatusCodes.OK).json({
             status: 'success',
-            results: results.length,
-            data: results,
+            results: sanitized.length,
+            data: sanitized,
         });
     } catch (error) {
         next(error);

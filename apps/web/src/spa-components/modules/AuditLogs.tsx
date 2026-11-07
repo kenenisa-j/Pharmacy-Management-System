@@ -18,6 +18,27 @@ export const AuditLogsPage: React.FC = () => {
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(true);
 
+    const formatAuditDetails = (rawDetails?: string) => {
+        if (!rawDetails) return 'N/A';
+
+        // 1. Convert any dollar signs ($) into Birr
+        let text = rawDetails.replace(/\$([0-9]+(?:\.[0-9]+)?)/g, 'Birr $1').replace(/\$/g, 'Birr ');
+
+        // 2. Shorten verbose legacy log sentences to focus on the essentials
+        const legacyMatch = text.match(/Processed (?:sale receipt|retail order) #([A-Za-z0-9-]+) amounting to (Birr\s+[0-9.]+)/i);
+        if (legacyMatch) {
+            text = `Order #${legacyMatch[1]} • ${legacyMatch[2]}`;
+        }
+
+        // 3. Strip out unnecessary system jargon and redundant payment suffix (since payment method has its own column)
+        text = text
+            .replace(/\s+with complete inventory synchronization\.?/gi, '')
+            .replace(/\s+via\s+(CASH|CARD|MOBILE_MONEY)\b/gi, '')
+            .trim();
+
+        return text;
+    };
+
     const fetchLogs = async (searchQuery = '') => {
         try {
             const res = await api.get('/audit-logs', {
@@ -134,8 +155,10 @@ export const AuditLogsPage: React.FC = () => {
                                                     {log.action}
                                                 </span>
                                             </td>
-                                            <td className="py-3 px-4 text-gray-700 max-w-xs truncate" title={log.details}>
-                                                {log.details || 'N/A'}
+                                            <td className="py-3 px-4 text-gray-800 font-medium">
+                                                <div className="max-w-md break-words" title={log.details}>
+                                                    {formatAuditDetails(log.details)}
+                                                </div>
                                             </td>
                                             <td className="py-3 px-4">
                                                 {paymentBadge(paymentMethod)}

@@ -9,7 +9,6 @@ import {
     CreditCard,
     Banknote,
     Smartphone,
-    Printer,
     CheckCircle2,
     Barcode,
     PackageX
@@ -151,10 +150,6 @@ export const POSPage: React.FC = () => {
         }
     };
 
-    const handlePrint = () => {
-        window.print();
-    };
-
     return (
         <div className="p-6 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-2rem)]">
 
@@ -206,7 +201,7 @@ export const POSPage: React.FC = () => {
                                         <h3 className="font-bold text-gray-900 mt-2 line-clamp-1 group-hover:text-indigo-600 transition">{med.name}</h3>
                                     </div>
                                     <div className="flex items-center justify-between mt-4 pt-2 border-t border-gray-100">
-                                        <span className="text-sm font-extrabold text-indigo-600">ETB {price.toFixed(2)}</span>
+                                        <span className="text-sm font-extrabold text-indigo-600">Birr {price.toFixed(2)}</span>
                                         <button className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-600 group-hover:text-white transition">
                                             <Plus className="w-4 h-4" />
                                         </button>
@@ -242,7 +237,7 @@ export const POSPage: React.FC = () => {
                             <div key={item.id} className="pt-3 first:pt-0 flex items-center justify-between gap-3">
                                 <div className="flex-1 min-w-0">
                                     <h4 className="font-semibold text-gray-900 text-xs truncate">{item.name}</h4>
-                                    <p className="text-xs text-indigo-600 font-bold mt-0.5">ETB {(item.sellingPrice || 0).toFixed(2)}</p>
+                                    <p className="text-xs text-indigo-600 font-bold mt-0.5">Birr {(item.sellingPrice || 0).toFixed(2)}</p>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <div className="flex items-center border rounded-lg overflow-hidden bg-gray-50">
@@ -307,7 +302,7 @@ export const POSPage: React.FC = () => {
                     <div className="space-y-1 pt-2 text-xs">
                         <div className="flex justify-between text-gray-500">
                             <span>Subtotal</span>
-                            <span>ETB {subtotal.toFixed(2)}</span>
+                            <span>Birr {subtotal.toFixed(2)}</span>
                         </div>
                         <div className="flex justify-between text-gray-500 items-center">
                             <span>Discount</span>
@@ -321,7 +316,7 @@ export const POSPage: React.FC = () => {
                         </div>
                         <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-2 border-t border-gray-200">
                             <span>Total Payable</span>
-                            <span className="text-indigo-600">ETB {grandTotal.toFixed(2)}</span>
+                            <span className="text-indigo-600">Birr {grandTotal.toFixed(2)}</span>
                         </div>
                     </div>
 
@@ -330,7 +325,7 @@ export const POSPage: React.FC = () => {
                         disabled={cart.length === 0 || loading}
                         className="w-full py-3 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-md hover:bg-indigo-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {loading ? 'Processing Payment...' : `Complete Payment (ETB ${grandTotal.toFixed(2)})`}
+                        {loading ? 'Processing Payment...' : `Complete Payment (Birr ${grandTotal.toFixed(2)})`}
                     </button>
                 </div>
             </div>
@@ -342,7 +337,7 @@ export const POSPage: React.FC = () => {
                         <div className="text-center space-y-1 border-b pb-4">
                             <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
                             <h3 className="text-lg font-bold text-gray-900">Payment Successful</h3>
-                            <p className="text-xs text-gray-500">Receipt #{completedReceipt.receiptNumber}</p>
+                            <p className="text-xs text-gray-500 font-mono">Order Ref #{completedReceipt.receiptNumber}</p>
                         </div>
 
                         <div className="space-y-2 text-xs text-gray-600">
@@ -360,11 +355,11 @@ export const POSPage: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="border-t border-b py-3 space-y-2 max-h-40 overflow-y-auto">
+                        <div className="border-t border-b border-gray-200 py-3 space-y-2 max-h-48 overflow-y-auto">
                             {completedReceipt.items.map((it: any, i: number) => (
-                                <div key={i} className="flex justify-between text-xs">
-                                    <span>{it.name} x{it.quantity}</span>
-                                    <span className="font-semibold">ETB {((it.sellingPrice || 0) * it.quantity).toFixed(2)}</span>
+                                <div key={i} className="flex justify-between text-xs text-gray-800 font-medium">
+                                    <span className="text-gray-900 font-semibold">{it.name} <span className="text-gray-500 font-normal">x{it.quantity}</span></span>
+                                    <span className="font-bold text-gray-900">Birr {((it.sellingPrice || 0) * it.quantity).toFixed(2)}</span>
                                 </div>
                             ))}
                         </div>
@@ -372,33 +367,27 @@ export const POSPage: React.FC = () => {
                         <div className="space-y-1 text-xs pt-1">
                             <div className="flex justify-between text-gray-500">
                                 <span>Subtotal</span>
-                                <span>ETB {completedReceipt.subtotal.toFixed(2)}</span>
+                                <span>Birr {completedReceipt.subtotal.toFixed(2)}</span>
                             </div>
                             {completedReceipt.discount > 0 && (
                                 <div className="flex justify-between text-emerald-600">
                                     <span>Discount</span>
-                                    <span>-ETB {completedReceipt.discount.toFixed(2)}</span>
+                                    <span>-Birr {completedReceipt.discount.toFixed(2)}</span>
                                 </div>
                             )}
                             <div className="flex justify-between text-sm font-extrabold text-gray-900 pt-2 border-t">
                                 <span>Total Paid</span>
-                                <span className="text-indigo-600">ETB {completedReceipt.grandTotal.toFixed(2)}</span>
+                                <span className="text-indigo-600">Birr {completedReceipt.grandTotal.toFixed(2)}</span>
                             </div>
                         </div>
 
-                        <div className="flex gap-2 pt-2">
-                            <button
-                                onClick={handlePrint}
-                                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-xl text-xs font-semibold hover:bg-gray-200 flex items-center justify-center gap-1.5 transition"
-                            >
-                                <Printer className="w-4 h-4" /> Print Receipt
-                            </button>
+                        <div className="pt-2">
                             <button
                                 onClick={() => {
                                     setCompletedReceipt(null);
                                     searchInputRef.current?.focus();
                                 }}
-                                className="flex-1 py-2 bg-indigo-600 text-white rounded-xl text-xs font-semibold hover:bg-indigo-700 transition"
+                                className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 shadow-sm transition"
                             >
                                 New Sale
                             </button>

@@ -105,8 +105,14 @@ export const Login: React.FC = () => {
     const [error, setError]               = useState('');
     const [isLoading, setIsLoading]       = useState(false);
 
-    const login    = useAuthStore((s) => s.login);
+    const { isAuthenticated, user, login } = useAuthStore();
     const navigate = useNavigate();
+
+    React.useEffect(() => {
+        if (isAuthenticated && user) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [isAuthenticated, user, navigate]);
 
     const fillDemo = (demoEmail: string, demoPass: string) => {
         setEmail(demoEmail);
